@@ -1,0 +1,216 @@
+企业AI智能招聘管理系统
+方案设计文档（优化版）
+
+
+一、项目概述
+1.1 项目定位
+本系统面向中小企业，提供招聘流程线上化、智能化改造服务。通过融合AI大模型技术，实现岗位发布、简历投递、AI筛选、面试管理全流程线上化，解决传统招聘效率低、周期长、决策主观等痛点。
+
+
+1.2 核心价值
+双端一体化：求职者招聘官网 + HR管理后台，招聘求职两端闭环
+AI全流程赋能：简历解析、智能匹配、面试题生成、离职预测、绩效诊断
+数据驱动：招聘漏斗、转化率、岗位热度可视化分析
+实时响应：SignalR实时推送，投递成功即时通知
+
+
+二、总体架构与技术方案
+2.1 架构模式
+采用前后端分离架构，保证系统可扩展性与维护性。
+
+
+2.2 技术栈
+后端技术
+.NET 8 + SQL Server + Entity Framework Core
+前端技术
+Vue 3 + Vite + Element Plus + Pinia + TypeScript
+AI与数据服务
+AI大模型API（简历解析、匹配度评分、面试题生成、离职预测）
+中间件与服务
+RabbitMQ（异步消息队列）、Hangfire（定时任务）、SignalR（实时推送）
+缓存与存储
+Redis（缓存、Session）、MinIO（文件对象存储）
+安全与鉴权
+JWT鉴权、BCrypt密码加密
+
+
+2.3 系统分层架构
+┌─────────────────────────────────────────┐
+│  前端展示层（Vue 3 + Element Plus）    │
+├─────────────────────────────────────────┤
+│  API网关层（JWT鉴权、请求路由）     │
+├─────────────────────────────────────────┤
+│  业务逻辑层（.NET Core）        │
+├─────────────────────────────────────────┤
+│  AI服务层（大模型API调用）      │
+├─────────────────────────────────────────┤
+│  消息队列层（RabbitMQ）       │
+├─────────���───────────────────────────────┤
+│  数据访问层（EF Core + SQL Server） │
+└─────────────────────────────────────────┘
+
+
+三、核心功能模块设计
+3.1 模块一：权限与用户管理
+• 用户登录/注册（HR、求职者双角色）
+• 角色权限隔离（RBAC权限模型）
+• 个人信息维护、密码修改
+• 登录日志、操作日志记录
+
+
+3.2 模块二：招聘岗位管理（HR）
+• 岗位发布、编辑、下架、删除
+• 岗位详情、JD编辑、任职要求
+• 岗位开放/关闭控制
+• 岗位列表与多条件查询
+
+
+3.3 模块三：求职者端（招聘官网）
+• 求职者注册、登录
+• 岗位列表、岗位详情浏览
+• 简历在线填写/附件上传（MinIO存储）
+• 简历投递、投递记录、进度查询
+
+
+3.4 模块四：AI智能招聘服务（核心亮点）
+3.4.1 AI简历结构化解析
+通过AI大模型自动解析PDF/Word简历，提取关键信息：姓名、电话、学历、工作经历、项目经验、技能标签等，存入结构化数据表。
+3.4.2 AI岗位匹配度评分
+基于NLP语义匹配，计算候选人简历与岗位JD的匹配度分数（0-100），生成匹配理由与分析报告。
+3.4.3 AI自动生成面试题
+根据岗位要求和候选人简历，AI智能生成针对性强的问题，支持技术题、行为题、场景题，HR可选择启用。
+3.4.4 AI招聘数据分析与建议
+招聘漏斗转化率分析、岗位热度分析、简历来源分析，AI给出优化建议。
+
+
+3.5 模块五：简历与面试管理（HR）
+• 简历列表、查看、筛选（支持多条件）
+• 简历状态管理（待查看→已查看→面试→录用/淘汰）
+• 面试安排（含面试官、时间、地点）
+• 面试记录、录用/淘汰操作
+
+
+3.6 模块六：消息队列与实时推送
+3.6.1 RabbitMQ异步任务
+• AI简历解析异步处理（投递后自动触发）
+• 邮件/短信通知发送
+• 报表异步生成
+3.6.2 Hangfire定时任务
+• 每日招聘数据统计
+• 岗位过期自动下架
+• 简历库定期清理
+3.6.3 SignalR实时推送
+• 新简历投递实时提醒（HR工作台角标）
+• 简历状态变更通知（求职者端）
+• AI处理进度实时推送
+
+
+3.7 模块七：数据统计与可视化
+• 岗位投递量统计（按时间/部门/岗位）
+• 简历来源、质量分析
+• 招聘漏斗、转化率统计
+• 数据导出（Excel）、定时备份
+
+
+四、界面设计规范
+4.1 设计风格
+简约、专业、企业级、清爽可视化，使用Element Plus组件库构建。
+
+
+4.2 主题色彩
+主色：#1F4E78（深蓝）  辅助色：#F5F5F5（浅灰）、#E67C1A（橙色提醒）
+
+
+4.3 核心页面
+HR端：工作台 | 岗位管理 | 简历管理 | AI招聘中心 | 面试管理 | 数据统计 | 个人中心
+求职者端：首页 | 岗位列表 | 岗位详情 | 简历投递 | 我的投递 | 个人中心
+
+
+4.4 交互亮点
+• AI结果流式打字机展示（真实Streaming效果）
+• 投递成功实时提示（SignalR）
+• HR工作台新简历角标提醒
+• 简历状态一键更新
+• 可视化图表（ECharts）：招聘漏斗、转化率、岗位热度
+• 表单智能回填、数据字典
+• 一键导出Excel
+
+
+五、数据库设计
+5.1 核心数据表
+sys_user（用户表）
+user_id, username, password_hash, role, real_name, phone, email, status, created_at, last_login
+job（招聘岗位表）
+job_id, title, dept, JD, requirements, salary_min, salary_max, location, status, hr_id, created_at, expired_at
+candidate（求职者表）
+candidate_id, user_id, real_name, phone, email, education, work_years, resume_url, created_at
+delivery（投递记录表）
+delivery_id, job_id, candidate_id, status, hr_id, deliver_time, update_time, remark
+interview（面试安排表）
+interview_id, delivery_id, interviewer_id, schedule_time, location, status, result, record
+
+
+5.2 AI专属数据表（4张）
+ai_resume_score（AI简历评分表）
+score_id, delivery_id, match_score, match_reason, analysis_report, created_at
+ai_interview_question（AI面试题表）
+question_id, delivery_id, job_id, questions_json, category, created_at
+ai_resume_analysis（AI简历解析表）
+analysis_id, candidate_id, parsed_json, skills_tags, work_experience, projects, created_at
+ai_recruitment_insight（AI招聘洞察表）
+insight_id, hr_id, period, pipeline_data, recommendations, created_at
+
+
+5.3 日志与辅助表
+sys_login_log, sys_oper_log, sys_config, upload_file
+
+
+六、接口设计
+6.1 接口规范
+RESTful API + JSON格式 + JWT鉴权 + 统一返回结构 + 分页/筛选/排序
+
+
+6.2 核心接口列表
+认证模块：/api/auth/login, /api/auth/register, /api/auth/refresh
+岗位模块：/api/job/list, /api/job/detail, /api/job/add, /api/job/update, /api/job/delete
+简历模块：/api/delivery/add, /api/delivery/my, /api/delivery/list, /api/delivery/updateStatus
+AI模块：/api/ai/resume/analyze, /api/ai/resume/score, /api/ai/interview/generate, /api/ai/insights
+面试模块：/api/interview/schedule, /api/interview/list, /api/interview/update
+统计模块：/api/stat/dashboard, /api/stat/funnel, /api/stat/export
+
+
+七、项目创新与特色
+7.1 核心特色
+• 纯招聘定位：剔除冗余内部管理，轻量化易上线
+• 双角色闭环：求职者官网投递 + HR后台处理
+• AI全流程赋能：解析→评分→出题→分析一站式
+• 中间件保障：RabbitMQ异步、Hangfire定时、SignalR实时
+• 流式输出：AI结果打字机效果，用户体验佳
+• 可视化图表：ECharts招聘漏斗、转化率可视化
+• 数据驱动：招聘数据辅助决策
+
+
+
+八、技术架构图
+┌──────────────────────────────────────────────────────────────────┐
+│                      客户端（Vue 3 + Element Plus）                    │
+├──────────────────────────────────────────────────────────────────┤
+│  HR管理后台                         求职者官网                    │
+│  • 工作台 • 岗位管理 • 简历管理        • 岗位 browse • 投递                   │
+│  • AI中心 • 面试管理 • 数据统计        • 我的投递 • 个人中心                 │
+├──────────────────────────────────────────────────────────────────┤
+│                        Ngnix反向代理                           │
+├──────────────────────────────────────────────────────────────────┤
+│                    .NET 8 Web API（JWT鉴权）                     │
+│  Controllers: Auth, Job, Delivery, AI, Interview, Stat           │
+├─────────────────────────────────────────────────────���─���──────────┤
+│                    业务服务层（Services）                        │
+│  AuthService JobService DeliveryService AIService              │
+├──────────────────────────────────────────────────────────────────┤
+│          │              │              │              │              │
+│    ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐    │
+│ RabbitMQ     Hangfire    SignalR     Redis      MinIO     AI API   │
+│ 异步队列    定时任务   实时推送   缓存      对象存储   大模型  │
+├──────────────────────────────────────────────────────────────────┤
+│              EF Core + SQL Server（17张表）                    │
+└──────────────────────────────────────────────────────────────────┘

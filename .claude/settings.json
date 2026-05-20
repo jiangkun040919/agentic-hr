@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -Eq 'rm[[:space:]]+-rf|git[[:space:]]+push[[:space:]]+.*(-f|--force)|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+checkout[[:space:]]+--|git[[:space:]]+branch[[:space:]]+-D|git[[:space:]]+clean[[:space:]]+-f|force[[:space:]]+push'; then echo '[Hook] 检测到危险命令，请确认是否继续'; fi"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "if echo \"$CLAUDE_TOOL_OUTPUT_FILE\" | grep -qE '\\.(vue|ts|js|tsx|jsx)$'; then cd \"$CLAUDE_PROJECT_DIR\" && npx eslint \"$CLAUDE_TOOL_OUTPUT_FILE\" --fix 2>&1 | tail -5; fi"
+      }
+    ]
+  }
+}

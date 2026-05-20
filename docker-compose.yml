@@ -1,0 +1,148 @@
+version: '3.8'
+
+# 多源异构数据驱动岗位和能力图谱系统 — Docker 一键部署
+# 使用方法: docker-compose up -d
+
+services:
+  # ===== SQL Server 数据库 =====
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: airecruit-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "AiRecruitment@2024"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "AiRecruitment@2024" -Q "SELECT 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== Redis 缓存 =====
+  redis:
+    image: redis:7-alpine
+    container_name: airecruit-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== Neo4j 图数据库 =====
+  neo4j:
+    image: neo4j:5-community
+    container_name: airecruit-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4jdata:/data
+      - neo4jlogs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'RETURN 1' | cypher-shell -u neo4j -p password || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+
+  # ===== MinIO 对象存储 (简历文件、导出文件) =====
+  minio:
+    image: minio/minio:latest
+    container_name: airecruit-minio
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== RabbitMQ 消息队列 =====
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: airecruit-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== 后端 API (.NET 8) =====
+  backend:
+    build:
+      context: ./Backend/AIRecruitment.Api
+      dockerfile: Dockerfile
+    container_name: airecruit-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=AIRecruitment;User=sa;Password=AiRecruitment@2024;TrustServerCertificate=True
+      ConnectionStrings__Redis: redis:6379
+      Neo4j__Uri: bolt://neo4j:7687
+      Neo4j__User: neo4j
+      Neo4j__Password: password
+      MinIO__Endpoint: minio:9000
+      RabbitMQ__Host: rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # ===== 前端 (Vue 3 + Nginx) =====
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: airecruit-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  sqldata:
+  redisdata:
+  neo4jdata:
+  neo4jlogs:
+  miniodata:
+  rabbitdata:

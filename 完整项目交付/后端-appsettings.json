@@ -1,0 +1,44 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  
+  // 数据库连接 - 使用 LocalDB
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=LAPTOP-JO2PRGP7;Database=AIRecruitment;Trusted_Connection=True;TrustServerCertificate=True",
+    "Redis": "localhost:6379"
+  },
+  
+  // JWT配置
+  "Jwt": {
+    "Key": "YourSuperSecretKey12345678901234567890",
+    "Issuer": "AIRecruitment",
+    "ExpiryDays": 7
+  },
+  
+  // RabbitMQ配置
+  "RabbitMQ": {
+    "Host": "localhost",
+    "UserName": "guest",
+    "Password": "guest"
+  },
+  
+  // MinIO配置（对象存储）
+  "MinIO": {
+    "Endpoint": "localhost:9000",
+    "AccessKey": "minioadmin",
+    "SecretKey": "minioadmin",
+    "BucketName": "recruitment"
+  },
+  
+  // AI大模型配置
+  "AI": {
+    "Provider": "openai",
+    "ApiKey": "",
+    "Model": "gpt-3.5-turbo"
+  }
+}
