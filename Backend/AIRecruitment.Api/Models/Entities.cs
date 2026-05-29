@@ -59,6 +59,8 @@ public class Candidate
     public string? Education { get; set; }
     public int? WorkYears { get; set; }
     public string? ResumeUrl { get; set; }
+    /// <summary>在线简历内容（候选人手写的简历文本）</summary>
+    public string? ResumeContent { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public ICollection<Delivery>? Deliveries { get; set; }
@@ -278,3 +280,60 @@ public class Notification
     [ForeignKey("UserId")]
     public SysUser? User { get; set; }
 }
+
+[Table("SeedTemplate")]
+public class SeedTemplate
+{
+    [Key]
+    public int TemplateId { get; set; }
+    [Required, MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+    [MaxLength(50)]
+    public string Category { get; set; } = string.Empty;
+    [MaxLength(500)]
+    public string? Aliases { get; set; }                    // JSON array
+    public string? Responsibilities { get; set; }           // JSON array
+    public string? HardSkillsRequired { get; set; }         // JSON array
+    public string? HardSkillsPreferred { get; set; }        // JSON array
+    public string? SoftSkills { get; set; }                 // JSON array
+    [MaxLength(50)]
+    public string? EducationLevel { get; set; }
+    [MaxLength(100)]
+    public string? EducationMajor { get; set; }
+    [MaxLength(20)]
+    public string? ExpJunior { get; set; }
+    [MaxLength(20)]
+    public string? ExpMid { get; set; }
+    [MaxLength(20)]
+    public string? ExpSenior { get; set; }
+    public string? Certifications { get; set; }             // JSON array
+    public string? SearchKeywords { get; set; }             // JSON array
+    public string? ExcludeKeywords { get; set; }            // JSON array
+    public string? SourcePlatforms { get; set; }            // JSON array
+    public int MaxInstances { get; set; } = 5;
+    public int CurrentInstances { get; set; } = 0;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+[Table("DiscoveredJob")]
+public class DiscoveredJob
+{
+    [Key]
+    public int Id { get; set; }
+    [Required, MaxLength(200)]
+    public string Title { get; set; } = string.Empty;
+    [MaxLength(500)]
+    public string? RawDescription { get; set; }
+    [MaxLength(50)]
+    public string? SourcePlatform { get; set; }
+    public int? MatchedTemplateId { get; set; }
+    public double? SimilarityScore { get; set; }
+    [MaxLength(20)]
+    public string Status { get; set; } = "pending";         // pending / approved / rejected
+    public string? ReviewedBy { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+}
+

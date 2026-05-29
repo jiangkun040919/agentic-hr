@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import { useTheme } from '@/utils/theme'
-
-const { theme } = useTheme()
 </script>
 
 <template>
-  <RouterView :key="theme" />
+  <RouterView v-slot="{ Component, route }">
+    <Transition name="page" mode="out-in">
+      <component :is="Component" :key="route.path" />
+    </Transition>
+  </RouterView>
 </template>
 
 <style>
@@ -17,17 +18,16 @@ const { theme } = useTheme()
   color: var(--color-text);
 }
 
-/* 全局路由过渡动画 */
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.fade-slide-enter-from {
+.page-enter-from {
   opacity: 0;
   transform: translateY(8px);
 }
-.fade-slide-leave-to {
+.page-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-4px);
 }
 </style>

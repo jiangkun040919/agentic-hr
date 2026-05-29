@@ -186,17 +186,42 @@ public class DeliveryController : ControllerBase
                 return Ok(new { code = 400, message = "仅支持 PDF (.pdf) 和 Word (.docx/.doc) 格式" });
 
             var pdfService = HttpContext.RequestServices.GetRequiredService<IPdfExtractService>();
-            var text = await pdfService.ExtractBase64Async(request.FileBase64, fileName);
+            var (text, filePath) = await pdfService.ExtractBase64Async(request.FileBase64, fileName, id);
             if (!string.IsNullOrEmpty(text))
             {
                 await _deliveryService.SaveResumeTextAsync(id, text);
+                // 同时保存原始文件路径
+                if (!string.IsNullOrEmpty(filePath))
+                    await _deliveryService.SaveResumeFilePathAsync(id, filePath);
                 var fileType = ext == ".pdf" ? "PDF" : "Word";
-                return Ok(new { code = 200, message = $"{fileType}解析成功，提取{text.Length}字", data = new { textLength = text.Length } });
+                return Ok(new { code = 200, message = $"{fileType}解析成功，提取{text.Length}字", data = new { textLength = text.Length, hasFile = !string.IsNullOrEmpty(filePath) } });
             }
             return Ok(new { code = 400, message = "文件无法解析或内容为空" });
         }
         catch (Exception ex) { return Ok(new { code = 500, message = ex.Message }); }
     }
+
+    /// <summary>下载原始简历文件（PDF/Word）</summary>
+    [HttpGet("{id}/download-resume")]
+    [Authorize(Roles = "hr,admin")]
+    public async Task<IActionResult> DownloadResume(int id)
+    {
+        var detail = await _deliveryService.GetDeliveryDetailAsync(id);
+        var filePath = detail.ResumeUrl;
+        if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
+            return NotFound(new { code = 404, message = "原始简历文件不存在，可能尚未上传或文件已丢失" });
+
+        var fileName = Path.GetFileName(filePath);
+        var contentType = Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".pdf" => "application/pdf",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".doc" => "application/msword",
+            _ => "application/octet-stream"
+        };
+        return PhysicalFile(filePath, contentType, fileName);
+    }
+
     /// <summary>多候选人横向对比 — AI驱动的对比决策支持</summary>
     [HttpPost("compare")]
     [Authorize(Roles = "hr,admin")]

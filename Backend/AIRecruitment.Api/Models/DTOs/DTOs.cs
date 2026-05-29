@@ -12,9 +12,11 @@ public class RegisterRequest
     public string? Email { get; set; }
 }
 public record LoginResponse(string Token, string Role, int UserId, string Username);
-public record UserInfoResponse(int UserId, string Username, string Role, string? RealName, string? Phone, string? Email, string? Avatar);
+public record UserInfoResponse(int UserId, string Username, string Role, string? RealName, string? Phone, string? Email, string? Avatar,
+    string? Education = null, int? WorkYears = null, string? ResumeContent = null, string? ResumeUrl = null, int? CandidateId = null);
 public record ChangePasswordRequest(string OldPassword, string NewPassword);
-public record UpdateProfileRequest(string? RealName = null, string? Phone = null, string? Email = null);
+public record UpdateProfileRequest(string? RealName = null, string? Phone = null, string? Email = null,
+    string? Education = null, int? WorkYears = null, string? ResumeContent = null, string? ResumeUrl = null);
 
 // ========== 岗位相关 ==========
 public record JobListParams(
@@ -101,7 +103,8 @@ public record DeliveryResponse(
     DateTime? UpdateTime,
     string? Remark,
     bool AllowAIInterview = false,
-    DateTime? AIInterviewDeadline = null
+    DateTime? AIInterviewDeadline = null,
+    string? ResumeText = null
 );
 
 // ========== 面试相关 ==========
@@ -154,7 +157,13 @@ public record DashboardResponse(
     Dictionary<string, int> Stats,
     List<DeliveryResponse> PendingResumes,
     List<InterviewResponse> TodayInterviews,
-    List<DeliveryResponse> RecentDeliveries
+    List<DeliveryResponse> RecentDeliveries,
+    List<DeptDistribution>? DeptDistribution = null
+);
+
+public record DeptDistribution(
+    string Name,
+    int Value
 );
 
 public record FunnelDataResponse(
@@ -173,3 +182,40 @@ public record FormalHireRequest(DateTime? HireDate, string? Position, decimal? S
 // ========== 通用响应 ==========
 public record ApiResponse<T>(bool Success, string Message, T? Data);
 public record PagedResponse<T>(List<T> Items, int Total, int Page, int PageSize);
+
+// ========== 种子模板 ==========
+public record SeedTemplateListParams(int Page = 1, int PageSize = 20, string? Keyword = null, string? Category = null);
+
+public record SeedTemplateFormData(
+    string Name,
+    string? Category = null,
+    string? Aliases = null,
+    string? Responsibilities = null,
+    string? HardSkillsRequired = null,
+    string? HardSkillsPreferred = null,
+    string? SoftSkills = null,
+    string? EducationLevel = null,
+    string? EducationMajor = null,
+    string? ExpJunior = null,
+    string? ExpMid = null,
+    string? ExpSenior = null,
+    string? Certifications = null,
+    string? SearchKeywords = null,
+    string? ExcludeKeywords = null,
+    string? SourcePlatforms = null,
+    int MaxInstances = 5
+);
+
+public record DiscoveredJobListParams(int Page = 1, int PageSize = 20, string? Status = null);
+
+public record DiscoveredJobActionRequest(string Action, string? ReviewedBy = null);
+
+public record EnrichJobRequest(
+    string Title,
+    string? Jd = null,
+    string? Requirements = null,
+    string? Location = null,
+    decimal? SalaryMin = null,
+    decimal? SalaryMax = null
+);
+

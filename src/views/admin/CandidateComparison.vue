@@ -93,6 +93,22 @@
         <el-button type="primary" size="small" @click="resetWeights" style="margin-top:8px">恢复默认权重</el-button>
       </el-card>
 
+      <!-- 技能差距图谱 -->
+      <el-card class="gap-graph-card" shadow="never" v-if="comparisonData">
+        <template #header>
+          <div class="card-header-title">
+            <el-icon><Connection /></el-icon>
+            <span>技能差距图谱</span>
+          </div>
+        </template>
+        <GraphCanvas
+          :nodes="gapGraphNodes"
+          :edges="gapGraphEdges"
+          :height="380"
+          @node-click="onGapNodeClick"
+        />
+      </el-card>
+
       <!-- 并排对比卡片 -->
       <div class="side-by-side">
         <el-card v-for="(c, i) in comparisonData.candidates" :key="i" class="candidate-card" shadow="never" :class="{ 'top-pick': i === 0 }">
@@ -191,11 +207,12 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { TrendCharts, Setting, MagicStick } from '@element-plus/icons-vue'
+import { TrendCharts, Setting, MagicStick, Connection } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { getResumeList, compareCandidates } from '@/api/delivery'
+import GraphCanvas from '@/components/graph/GraphCanvas.vue'
 
-const COLORS = ['#6C6FF7', '#10B981', '#F59E0B', '#A86EF7']
+const COLORS = ['#6C6FF7', '#6B8B4E', '#B08040', '#A86EF7']
 
 const listLoading = ref(false)
 const comparing = ref(false)
@@ -212,8 +229,8 @@ interface DimConfig {
 
 const dimensions = reactive<DimConfig[]>([
   { key: 'eduScore', label: '学历匹配', weight: 15, defaultValue: 15, color: '#6C6FF7' },
-  { key: 'expScore', label: '经验匹配', weight: 20, defaultValue: 20, color: '#F59E0B' },
-  { key: 'skillScore', label: '技能匹配', weight: 40, defaultValue: 40, color: '#10B981' },
+  { key: 'expScore', label: '经验匹配', weight: 20, defaultValue: 20, color: '#B08040' },
+  { key: 'skillScore', label: '技能匹配', weight: 40, defaultValue: 40, color: '#6B8B4E' },
   { key: 'completeScore', label: '简历完整度', weight: 25, defaultValue: 25, color: '#A86EF7' },
 ])
 
@@ -246,6 +263,7 @@ const runComparison = async () => {
       }
       await nextTick()
       renderRadarChart()
+      buildGapGraph()
     }
   } catch (e: any) {
     ElMessage.error(e.message || '对比失败')
@@ -254,7 +272,7 @@ const runComparison = async () => {
   }
 }
 
-const scoreColor = (s: number) => s >= 80 ? '#10B981' : s >= 60 ? '#F59E0B' : '#F43F5E'
+const scoreColor = (s: number) => s >= 80 ? '#6B8B4E' : s >= 60 ? '#B08040' : '#F43F5E'
 
 // 根据加权计算各维度得分
 const getWeightedDimScore = (c: any, dimKey: string) => {
@@ -267,12 +285,67 @@ const getWeightedDimScore = (c: any, dimKey: string) => {
 
 const recalculateScores = () => {
   renderRadarChart()
+  buildGapGraph()
 }
 
 const resetWeights = () => {
   dimensions.forEach((d, i) => { d.weight = DEFAULT_WEIGHTS[i] })
   renderRadarChart()
+  buildGapGraph()
 }
+
+// ═══ 技能差距图谱 ═══
+const gapGraphNodes = ref<any[]>([])
+const gapGraphEdges = ref<any[]>([])
+
+const buildGapGraph = () => {
+  if (!comparisonData.value?.candidates) return
+  const candidates = comparisonData.value.candidates
+  const nodes: any[] = []
+  const edges: any[] = []
+
+  // 岗位基准节点
+  nodes.push({ id: 'benchmark', label: '岗位基准', type: 'Job', category: 'job', size: 50 })
+
+  candidates.forEach((c: any, i: number) => {
+    const cid = `candidate-${i}`
+    nodes.push({
+      id: cid,
+      label: c.candidateName,
+      type: 'Candidate',
+      category: 'candidate',
+      size: 40
+    })
+    edges.push({
+      id: `edge-${cid}-bench`,
+      source: cid,
+      target: 'benchmark',
+      label: `${c.overallScore || 0}分`
+    })
+
+    // 分解技能：优势和弱点作为子节点
+    const strengths = c.strengths || []
+    const weaknesses = c.weaknesses || []
+
+    strengths.slice(0, 4).forEach((s: string, si: number) => {
+      const sid = `${cid}-str-${si}`
+      nodes.push({ id: sid, label: s, type: 'Skill', category: 'matched', size: 28 })
+      edges.push({ id: `${cid}-${sid}`, source: cid, target: sid, label: '优势' })
+      edges.push({ id: `${sid}-bench`, source: sid, target: 'benchmark', label: '' })
+    })
+
+    weaknesses.slice(0, 4).forEach((w: string, wi: number) => {
+      const wid = `${cid}-weak-${wi}`
+      nodes.push({ id: wid, label: w, type: 'Skill', category: 'gap', size: 28 })
+      edges.push({ id: `${cid}-${wid}`, source: cid, target: wid, label: '待提升' })
+    })
+  })
+
+  gapGraphNodes.value = nodes
+  gapGraphEdges.value = edges
+}
+
+const onGapNodeClick = (nodeId: string) => { /* no-op */ }
 
 const renderRadarChart = () => {
   if (!radarChartRef.value || !comparisonData.value?.candidates) return

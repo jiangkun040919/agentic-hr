@@ -98,11 +98,15 @@ public class DataCollectionService
                 break;
             case "enterprise_website":
                 results.AddRange(GetSeedJobData("企业官网"));
-                // GitHub API 在中国大陆网络不稳定，暂时关闭
+                // 从 GitHub Trending 获取真实热门技术栈
+                try { results.AddRange(await FetchGitHubTrendingAsync(client)); }
+                catch (Exception ex) { _logger.LogWarning("GitHub采集跳过: {msg}", ex.Message); }
                 break;
             case "industry_report":
                 results.AddRange(GetIndustryTrendJobs());
-                // 行业趋势 API 在中国大陆网络不稳定，暂时关闭
+                // 从技术社区获取真实趋势
+                try { results.AddRange(await FetchTechTrendsAsync(client)); }
+                catch (Exception ex) { _logger.LogWarning("技术趋势采集跳过: {msg}", ex.Message); }
                 break;
         }
 
@@ -158,77 +162,174 @@ public class DataCollectionService
         };
     }
 
-    /// <summary>从 GitHub Trending 获取热门技术栈</summary>
+    /// <summary>从 GitHub Trending 获取真实热门技术栈并生成岗位洞察</summary>
     private async Task<List<RawJobData>> FetchGitHubTrendingAsync(HttpClient client)
     {
         var results = new List<RawJobData>();
         try
         {
-            // GitHub API: 搜索 trending repositories (weekly)
-            var url = "https://api.github.com/search/repositories?q=stars:>1000+pushed:>2025-01-01&sort=stars&order=desc&per_page=15";
+            var url = "https://api.github.com/search/repositories?q=stars:>5000+pushed:>2025-01-01&sort=stars&order=desc&per_page=30";
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
             var resp = await client.GetStringAsync(url);
             using var doc = JsonDocument.Parse(resp);
             var items = doc.RootElement.GetProperty("items");
+
             var languages = new Dictionary<string, int>();
-            var topics = new Dictionary<string, int>();
+            var techTopics = new Dictionary<string, int>();
+            var aiTopics = new Dictionary<string, int>();
 
             foreach (var repo in items.EnumerateArray())
             {
                 var lang = repo.GetProperty("language").GetString();
-                if (!string.IsNullOrEmpty(lang)) languages[lang] = languages.GetValueOrDefault(lang) + 1;
+                if (!string.IsNullOrEmpty(lang))
+                    languages[lang] = languages.GetValueOrDefault(lang) + 1;
 
                 if (repo.TryGetProperty("topics", out var t))
+                {
                     foreach (var topic in t.EnumerateArray())
                     {
                         var tn = topic.GetString() ?? "";
-                        if (tn.Length > 1) topics[tn] = topics.GetValueOrDefault(tn) + 1;
+                        if (tn.Length > 1)
+                        {
+                            techTopics[tn] = techTopics.GetValueOrDefault(tn) + 1;
+                            if (tn.Contains("ai") || tn.Contains("ml") || tn.Contains("llm") ||
+                                tn.Contains("gpt") || tn.Contains("neural") || tn.Contains("deep-learning"))
+                                aiTopics[tn] = aiTopics.GetValueOrDefault(tn) + 1;
+                        }
                     }
+                }
             }
 
-            var topLangs = languages.OrderByDescending(kv => kv.Value).Take(8).Select(kv => kv.Key);
-            var topTopics = topics.OrderByDescending(kv => kv.Value).Take(10).Select(kv => kv.Key);
+            // 基于真实 GitHub 数据生成代表性岗位
+            var topLangs = languages.OrderByDescending(kv => kv.Value).Take(10).ToList();
+            var topTech = techTopics.Where(kv => kv.Value >= 2 && kv.Key.Length > 2)
+                .OrderByDescending(kv => kv.Value).Take(15).Select(kv => kv.Key).ToList();
 
-            // 基于真实热门技术生成岗位洞察
-            results.Add(new RawJobData
+            // 1. 语言趋势岗位
+            foreach (var (lang, count) in topLangs.Where(l => l.Key is "Python" or "TypeScript" or "Rust" or "Go" or "C++"))
             {
-                Title = $"[GitHub趋势] 热门技术栈岗位",
-                Requirements = string.Join(",", topLangs.Concat(topTopics).Distinct().Take(15)),
-                Description = $"GitHub Trending 真实数据分析：当前最热开源技术为{string.Join("、", topLangs.Take(5))}",
-                Source = "github_trending"
-            });
+                var title = lang switch
+                {
+                    "Python" => "Python开发工程师",
+                    "TypeScript" => "TypeScript全栈工程师", 
+                    "Rust" => "Rust系统开发工程师",
+                    "Go" => "Go后端开发工程师",
+                    "C++" => "C++高性能开发工程师",
+                    _ => $"{lang}开发工程师"
+                };
+                var skills = topTech.Where(t =>
+                    (lang == "Python" && (t.Contains("py") || t.Contains("ai") || t.Contains("ml") || t.Contains("data"))) ||
+                    (lang == "TypeScript" && (t.Contains("react") || t.Contains("node") || t.Contains("web") || t.Contains("frontend"))) ||
+                    (lang == "Rust" && (t.Contains("system") || t.Contains("wasm") || t.Contains("performance"))) ||
+                    (lang == "Go" && (t.Contains("api") || t.Contains("micro") || t.Contains("cloud") || t.Contains("server"))))
+                    .Take(6).ToList();
+
+                results.Add(new RawJobData
+                {
+                    Title = title,
+                    Requirements = string.Join(",", skills.Count > 0 ? skills : new[] { lang, "系统设计", "团队协作" }),
+                    Description = $"[GitHub实时数据] {lang}在顶级仓库中占比{count}/30，热门关联技术: {string.Join("、", skills.Take(4))}",
+                    Source = "github_trending"
+                });
+            }
+
+            // 2. AI/大模型相关岗位
+            if (aiTopics.Count > 0)
+            {
+                var topAI = aiTopics.OrderByDescending(kv => kv.Value).Take(6).Select(kv => kv.Key);
+                results.Add(new RawJobData
+                {
+                    Title = "AI大模型应用工程师",
+                    Requirements = $"Python,PyTorch,{string.Join(",", topAI)}",
+                    Description = $"[GitHub真实数据] AI/ML相关标签出现{aiTopics.Values.Sum()}次，反映市场对AI工程师的旺盛需求",
+                    Source = "github_trending"
+                });
+            }
+
+            // 3. 云原生/DevOps 岗位
+            var cloudTopics = topTech.Where(t => t.Contains("docker") || t.Contains("kubernetes") || t.Contains("cloud") || t.Contains("devops") || t.Contains("serverless")).ToList();
+            if (cloudTopics.Count > 0)
+            {
+                results.Add(new RawJobData
+                {
+                    Title = "云原生架构师",
+                    Requirements = $"Kubernetes,Docker,Terraform,AWS,{string.Join(",", cloudTopics.Take(4))}",
+                    Description = $"[GitHub真实数据] 云原生技术栈持续高热，{cloudTopics.Count}个相关标签进入Top30",
+                    Source = "github_trending"
+                });
+            }
         }
-        catch { /* GitHub API may rate limit */ }
+        catch { /* GitHub API rate limit or network issue */ }
         return results;
     }
 
-    /// <summary>从技术社区获取行业趋势</summary>
+    /// <summary>从技术社区获取真实行业趋势并映射为新兴岗位</summary>
     private async Task<List<RawJobData>> FetchTechTrendsAsync(HttpClient client)
     {
         var results = new List<RawJobData>();
         try
         {
-            // 从公开技术趋势 API 获取数据
-            var url = "https://api.github.com/search/repositories?q=topic:ai+topic:jobs+stars:>500&sort=updated&per_page=10";
+            // 搜索 AI/LLM 相关的热门仓库（反映真实技术趋势）
+            var url = "https://api.github.com/search/repositories?q=topic:llm+topic:ai+stars:>1000&sort=updated&per_page=15";
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
             var resp = await client.GetStringAsync(url);
             using var doc = JsonDocument.Parse(resp);
-            foreach (var repo in doc.RootElement.GetProperty("items").EnumerateArray())
+            var items = doc.RootElement.GetProperty("items");
+
+            var trendKeywords = new Dictionary<string, int>();
+            foreach (var repo in items.EnumerateArray())
             {
                 var desc = repo.GetProperty("description").GetString() ?? "";
-                if (desc.Length > 15)
+                var name = repo.GetProperty("full_name").GetString() ?? "";
+                
+                // 从仓库名和描述中提取技术关键词
+                foreach (var kw in new[] { "RAG", "agent", "multi-agent", "langchain", "llama", "fine-tuning",
+                    "vector", "embedding", "prompt", "推理", "tool-calling", "function-calling", "guardrails" })
                 {
-                    results.Add(new RawJobData
-                    {
-                        Title = $"[技术趋势] {repo.GetProperty("full_name").GetString()}",
-                        Requirements = desc.Length > 100 ? desc[..100] : desc,
-                        Description = $"源: GitHub, Stars: {repo.GetProperty("stargazers_count").GetInt32()}",
-                        Source = "tech_trends"
-                    });
+                    if (desc.Contains(kw, StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                        trendKeywords[kw] = trendKeywords.GetValueOrDefault(kw) + 1;
                 }
             }
+
+            // 生成基于真实趋势的新兴岗位
+            if (trendKeywords.ContainsKey("RAG") || trendKeywords.ContainsKey("vector"))
+                results.Add(new RawJobData
+                {
+                    Title = "RAG应用开发工程师",
+                    Requirements = "Python,LangChain,向量数据库,RAG,大模型API,语义检索",
+                    Description = "[GitHub真实趋势] RAG/向量检索相关仓库活跃，企业需求快速增长",
+                    Source = "tech_trends"
+                });
+
+            if (trendKeywords.ContainsKey("agent") || trendKeywords.ContainsKey("multi-agent"))
+                results.Add(new RawJobData
+                {
+                    Title = "AI Agent开发工程师",
+                    Requirements = "Python,LangChain,Multi-Agent,工具调用,记忆管理,任务编排",
+                    Description = "[GitHub真实趋势] AI Agent/多智能体框架成为2025-2026最热门方向",
+                    Source = "tech_trends"
+                });
+
+            if (trendKeywords.ContainsKey("fine-tuning") || trendKeywords.ContainsKey("llama"))
+                results.Add(new RawJobData
+                {
+                    Title = "大模型微调工程师",
+                    Requirements = "PyTorch,LoRA,QLoRA,分布式训练,Llama,DeepSpeed",
+                    Description = "[GitHub真实趋势] 开源模型微调工具链持续火热，企业私有化部署需求旺盛",
+                    Source = "tech_trends"
+                });
+
+            if (trendKeywords.ContainsKey("langchain") || trendKeywords.ContainsKey("tool-calling"))
+                results.Add(new RawJobData
+                {
+                    Title = "LLM应用架构师",
+                    Requirements = "Python,LangChain,LlamaIndex,工具调用,API设计,Prompt工程",
+                    Description = "[GitHub真实趋势] LLM应用框架生态快速演进，需要专业架构师设计企业级方案",
+                    Source = "tech_trends"
+                });
         }
-        catch { /* API may rate limit */ }
+        catch { /* API rate limit */ }
         return results;
     }
 

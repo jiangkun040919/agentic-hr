@@ -274,7 +274,7 @@ const formatDuration = (seconds: number) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 16px rgba(255, 107, 107, 0.25);
   flex-shrink: 0;
 
   .header-left {

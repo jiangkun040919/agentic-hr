@@ -352,6 +352,7 @@ import {
   setModelLoadCallback,
   type BehaviorState
 } from '@/utils/behaviorAnalysis'
+import { formatSalary } from '@/utils/format'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -496,6 +497,7 @@ let speechRecognition: any = null
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
 let recordingTimer: number | null = null
+let audioStream: MediaStream | null = null  // 持久的音频流，避免反复获取导致闪烁
 
 // ── TTS 语音播报 ──────────────────────────────────────
 const isSpeaking = ref(false)
@@ -568,7 +570,7 @@ onMounted(async () => {
         jobDept.value = jobRes.dept || ''
         jobLocation.value = jobRes.location || ''
         if (jobRes.salaryMin && jobRes.salaryMax) {
-          jobSalary.value = `${jobRes.salaryMin}-${jobRes.salaryMax}K`
+          jobSalary.value = `${formatSalary(jobRes.salaryMin)}-${formatSalary(jobRes.salaryMax)}`
         }
       }
     } catch (e) {
@@ -581,6 +583,11 @@ onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (recordingTimer) clearInterval(recordingTimer)
   if (speechRecognition) speechRecognition.stop()
+  // 清理音频流
+  if (audioStream) {
+    audioStream.getTracks().forEach(t => t.stop())
+    audioStream = null
+  }
   stopSpeaking()
   stopCamera()
   dispose()
@@ -676,12 +683,18 @@ const switchToVoice = () => {
 /** 启动云 STT（MediaRecorder → MiniMax ASR） */
 const startCloudSTT = async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    // 复用已有音频流，避免反复 getUserMedia 导致麦克风闪烁
+    if (!audioStream) {
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    }
+    // 确保流中音轨处于活跃状态
+    audioStream.getAudioTracks().forEach(t => { if (!t.enabled) t.enabled = true })
+    
     audioChunks = []
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+    mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm;codecs=opus' })
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data) }
     mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop())
+      // 不再停止音频轨，保持流活跃避免闪烁
       if (audioChunks.length === 0) { stopRecording(); return }
       isTranscribing.value = true
       const blob = new Blob(audioChunks, { type: 'audio/webm' })
@@ -795,7 +808,7 @@ const stopRecording = () => {
   isRecording.value = false
   isTranscribing.value = false
   if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null }
-  // 清理 MediaRecorder
+  // 停止 MediaRecorder（但不杀音频流，保留流避免麦克风闪烁）
   if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop()
   }
@@ -808,7 +821,7 @@ const autoSubmitVoiceIfReady = async () => {
   if (!text) {
     // 无内容时，在免提模式下静默重启录音
     if (autoListenMode.value) {
-      setTimeout(() => toggleVoiceRecord(), 1000)
+      setTimeout(() => toggleVoiceRecord(), 2000)
     } else {
       ElMessage.info('未识别到有效语音，请重新录制')
     }
@@ -1017,7 +1030,7 @@ const getScoreColor = (score: number) => {
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 16px rgba(255, 107, 107, 0.25);
 
   .header-left {
     display: flex;
@@ -1379,7 +1392,7 @@ const getScoreColor = (score: number) => {
   .ai-avatar {
     background: var(--gradient-primary);
     &.speaking {
-      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.3), 0 0 0 8px rgba(99, 102, 241, 0.1);
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.25), 0 0 0 8px rgba(255, 107, 107, 0.1);
       animation: avatar-pulse 1s infinite;
     }
   }
@@ -1428,8 +1441,8 @@ const getScoreColor = (score: number) => {
 }
 
 @keyframes avatar-pulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(99,102,241,0.3), 0 0 0 8px rgba(99,102,241,0.1); }
-  50% { box-shadow: 0 0 0 6px rgba(99,102,241,0.4), 0 0 0 12px rgba(99,102,241,0.15); }
+  0%, 100% { box-shadow: 0 0 0 4px rgba(196,169,106,0.25), 0 0 0 8px rgba(196,169,106,0.1); }
+  50% { box-shadow: 0 0 0 6px rgba(196,169,106,0.35), 0 0 0 12px rgba(196,169,106,0.12); }
 }
 
 .loading-bubble { min-width: 80px; }
@@ -1531,18 +1544,18 @@ const getScoreColor = (score: number) => {
       color: #fff;
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s;
-      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+      box-shadow: 0 6px 24px rgba(255, 107, 107, 0.35);
 
       &:hover { transform: scale(1.05); }
       &:active { transform: scale(0.97); }
 
       &.active {
-        background: linear-gradient(135deg, #c0392b, #e74c3c);
-        box-shadow: 0 6px 20px rgba(231, 76, 60, 0.35);
+        background: linear-gradient(135deg, var(--color-primary), #E85555);
+        box-shadow: 0 6px 24px rgba(255, 107, 107, 0.4);
       }
 
       &.transcribing {
-        background: linear-gradient(135deg, #e6a23c, #f4a261);
+        background: linear-gradient(135deg, var(--color-primary), #B08040);
         animation: spin-border 1s linear infinite;
       }
 
@@ -1550,7 +1563,7 @@ const getScoreColor = (score: number) => {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
 
         .ring {
-          position: absolute; border: 2px solid rgba(231, 76, 60, 0.4);
+          position: absolute; border: 2px solid rgba(255, 107, 107, 0.4);
           border-radius: 50%;
           animation: ripple 1.5s infinite ease-out;
 

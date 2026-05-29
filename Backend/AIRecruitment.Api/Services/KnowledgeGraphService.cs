@@ -295,6 +295,36 @@ public class KnowledgeGraphService : IDisposable
         catch { }
     }
 
+    /// <summary>带权重的技能 Upsert — 用真实频率数据更新图谱</summary>
+    public async Task UpsertJobSkillsWithWeightsAsync(string jobTitle, Dictionary<string, int> skillWeights)
+    {
+        if (!await IsAvailableAsync()) return;
+        try
+        {
+            await using var session = _driver!.AsyncSession();
+            await session.ExecuteWriteAsync(async tx =>
+            {
+                await tx.RunAsync(
+                    "MERGE (j:Job {name: $name}) SET j.updatedAt = datetime()",
+                    new { name = jobTitle });
+                foreach (var (skill, weight) in skillWeights)
+                {
+                    await tx.RunAsync(
+                        @"MERGE (s:Skill {name: $skill})
+                          WITH s
+                          MATCH (j:Job {name: $job})
+                          MERGE (j)-[r:REQUIRES]->(s)
+                          SET r.weight = $weight, r.updatedAt = datetime()",
+                        new { skill, job = jobTitle, weight });
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("UpsertJobSkillsWithWeights 失败 {job}: {msg}", jobTitle, ex.Message);
+        }
+    }
+
     // ========== 种子数据 ==========
 
     private static Dictionary<string, List<SkillWeight>> GetSeedJobSkillMap() => new()

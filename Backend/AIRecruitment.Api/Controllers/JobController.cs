@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AIRecruitment.Api.Models.DTOs;
 using AIRecruitment.Api.Services;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
 namespace AIRecruitment.Api.Controllers;
@@ -14,13 +15,15 @@ public class JobController : ControllerBase
     private readonly IAIService _aiService;
     private readonly KnowledgeGraphService? _graph;
     private readonly IConfiguration _configuration;
+    private readonly AppDbContext _db;
 
-    public JobController(IJobService jobService, IAIService aiService, IConfiguration configuration, KnowledgeGraphService? graph = null)
+    public JobController(IJobService jobService, IAIService aiService, IConfiguration configuration, KnowledgeGraphService? graph = null, AppDbContext db = null!)
     {
         _jobService = jobService;
         _aiService = aiService;
         _configuration = configuration;
         _graph = graph;
+        _db = db;
     }
 
     [HttpGet("list")]
@@ -141,6 +144,18 @@ public class JobController : ControllerBase
             return Ok(new { code = 200, message = $"成功导入 {count} 条，跳过 {items.Count - count} 条重复", data = new { imported = count } });
         }
         catch (Exception ex) { return Ok(new { code = 500, message = ex.Message }); }
+    }
+
+    [HttpGet("dept-stats")]
+    public async Task<IActionResult> DeptStats()
+    {
+        var stats = await _db.Jobs
+            .Where(j => j.Status == 1)
+            .GroupBy(j => j.Dept)
+            .Select(g => new { dept = g.Key, count = g.Count() })
+            .ToListAsync();
+        
+        return Ok(new { code = 200, data = stats });
     }
 }
 

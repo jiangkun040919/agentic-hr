@@ -6,19 +6,22 @@ namespace AIRecruitment.Api.Services;
 public interface IPdfExtractService
 {
     Task<string> ExtractTextAsync(string filePath);
-    Task<string> ExtractBase64Async(string base64, string fileName);
+    Task<(string text, string? filePath)> ExtractBase64Async(string base64, string fileName, int deliveryId);
 }
 
 public class PdfExtractService : IPdfExtractService
 {
     private readonly string _pythonPath;
     private readonly string _tempDir;
+    private readonly string _uploadsDir;
 
     public PdfExtractService()
     {
         _pythonPath = @"C:\Users\Lenovo\AppData\Local\Python\bin\python.exe";
         _tempDir = Path.Combine(Path.GetTempPath(), "ResumePDFs");
+        _uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "resumes");
         Directory.CreateDirectory(_tempDir);
+        Directory.CreateDirectory(_uploadsDir);
     }
 
     private static string BuildPythonScript(string filePath, string outputFile)
@@ -111,15 +114,79 @@ except Exception as e:
         return "";
     }
 
-    public async Task<string> ExtractBase64Async(string base64, string fileName)
+    /// <summary>Word 转 PDF（使用 Python docx2pdf，需要本机安装 Microsoft Word）</summary>
+    public async Task<string?> ConvertWordToPdfAsync(string docxPath, int deliveryId)
     {
-        if (string.IsNullOrEmpty(base64)) return "";
+        var ext = Path.GetExtension(docxPath).ToLowerInvariant();
+        if (ext != ".docx" && ext != ".doc") return null;
+
+        var pdfPath = Path.Combine(_uploadsDir, $"{deliveryId}_{DateTime.Now:yyyyMMddHHmmss}_converted.pdf");
+        var escapedInput = docxPath.Replace("\\", "\\\\");
+        var escapedOutput = pdfPath.Replace("\\", "\\\\");
+
+        var script = $@"
+import sys
+try:
+    from docx2pdf import convert
+    convert(r'{escapedInput}', r'{escapedOutput}')
+    print('OK')
+except Exception as e:
+    print(f'ERR:{{e}}')";
+
+        var scriptPath = Path.Combine(_tempDir, $"convert_{Guid.NewGuid()}.py");
+        await File.WriteAllTextAsync(scriptPath, script, System.Text.Encoding.UTF8);
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = _pythonPath,
+            Arguments = $"\"{scriptPath}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(psi);
+        if (process == null) return null;
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await process.WaitForExitAsync(cts.Token);
+
+        var output = await process.StandardOutput.ReadToEndAsync();
+        if (output.Contains("OK") && File.Exists(pdfPath))
+            return pdfPath;
+
+        Console.WriteLine($"[Word2PDF] Failed: {output}");
+        return null;
+    }
+
+    public async Task<(string text, string? filePath)> ExtractBase64Async(string base64, string fileName, int deliveryId)
+    {
+        if (string.IsNullOrEmpty(base64)) return ("", null);
 
         var pure = base64.Contains(',') ? base64.Split(',')[1] : base64;
         var bytes = Convert.FromBase64String(pure);
-        var filePath = Path.Combine(_tempDir, $"{Guid.NewGuid()}_{fileName}");
-        await File.WriteAllBytesAsync(filePath, bytes);
 
-        return await ExtractTextAsync(filePath);
+        // 保存到临时目录用于提取文本
+        var tempPath = Path.Combine(_tempDir, $"{Guid.NewGuid()}_{fileName}");
+        await File.WriteAllBytesAsync(tempPath, bytes);
+
+        // 保存到永久目录
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        var permFileName = $"{deliveryId}_{DateTime.Now:yyyyMMddHHmmss}{ext}";
+        var permPath = Path.Combine(_uploadsDir, permFileName);
+        await File.WriteAllBytesAsync(permPath, bytes);
+
+        // Word 文件自动转 PDF 以便浏览器预览
+        string? finalPath = permPath;
+        if (ext == ".docx" || ext == ".doc")
+        {
+            var pdfPath = await ConvertWordToPdfAsync(permPath, deliveryId);
+            if (pdfPath != null)
+                finalPath = pdfPath; // 预览/下载时优先用 PDF
+        }
+
+        var text = await ExtractTextAsync(tempPath);
+        return (text, finalPath);
     }
 }

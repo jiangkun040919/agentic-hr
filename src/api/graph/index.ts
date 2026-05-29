@@ -9,6 +9,9 @@ import type {
 export const getJobSkillGraph = (centerJob?: string, depth = 2) =>
   request.get<GraphData>('/graph/job-skill', { params: { centerJob, depth } })
 
+export const getFullGraph = (centerJob?: string, limit = 50) =>
+  request.get('/graph/full-graph', { params: { centerJob, limit } })
+
 export const getSkillTrend = (jobName: string) =>
   request.get<SkillTrendData>('/graph/skill-trend', { params: { jobName } })
 
@@ -50,6 +53,46 @@ export const takeSnapshot = (period: string) =>
 
 export const compareSnapshots = (period1: string, period2: string) =>
   request.get<SnapshotComparison>('/graph/snapshot-compare', { params: { period1, period2 } })
+
+// ====== 图谱自演化 ======
+export const runEvolution = () =>
+  request.post('/graph/evolution/run')
+
+export const getEvolutionTimeline = () =>
+  request.get('/graph/evolution/timeline')
+
+export const getSkillDrift = () =>
+  request.get('/graph/evolution/drift')
+
+export const getSkillLifecycle = (skill: string) =>
+  request.get('/graph/evolution/skill-lifecycle', { params: { skill } })
+
+// ====== 决策智能 ======
+export const explainMatch = (candidateId: number, jobId: number) =>
+  request.get('/graph/decision/explain-match', { params: { candidateId, jobId } })
+
+export const whatIf = (candidateId: number, jobId: number, newSkill: string) =>
+  request.get('/graph/decision/what-if', { params: { candidateId, jobId, newSkill } })
+
+export const whatIfBatch = (candidateId: number, jobId: number, skills: string[]) =>
+  request.post('/graph/decision/what-if-batch', { candidateId, jobId, skills })
+
+export const riskRadar = (candidateId: number, jobId: number) =>
+  request.get('/graph/decision/risk-radar', { params: { candidateId, jobId } })
+
+// ====== 候选人端智能 ======
+export const getCareerPath = (candidateId: number, jobId: number) =>
+  request.get('/graph/candidate/career-path', { params: { candidateId, jobId } })
+
+export const getRecommendJobs = (candidateId: number) =>
+  request.get('/graph/candidate/recommend-jobs', { params: { candidateId } })
+
+export const getCompetitiveness = (deliveryId: number) =>
+  request.get('/graph/candidate/competitiveness', { params: { deliveryId } })
+
+export const getTransparentMatch = (candidateId: number, jobId: number) =>
+  request.get('/graph/candidate/transparent-match', { params: { candidateId, jobId } })
+// v2
 
 export const ingestJob = (jobId: number, jobTitle: string, requirements: string, jd: string) =>
   request.post('/graph/ingest-job', { jobId, jobTitle, requirements, jd })

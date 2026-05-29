@@ -5,6 +5,8 @@ namespace AIRecruitment.Api.Services;
 /// <summary>
 /// 增强版人岗匹配引擎：多维度评分 + 差距分析 + 学习路径 + 幻觉防控。
 /// 匹配模型：加权综合评分 = 技能匹配(40%) + 经验匹配(25%) + 学历匹配(15%) + 薪资匹配(10%) + 综合适配(10%)
+///
+/// V2 新增 ML增强通道 + 多智能体通道 + Graph RAG 通道，三通道融合。
 /// </summary>
 public class EnhancedMatchingService
 {
@@ -12,10 +14,23 @@ public class EnhancedMatchingService
     private readonly IAIService _ai;
     private readonly AppDbContext _db;
     private readonly ILogger<EnhancedMatchingService> _logger;
+    private readonly MLMatchingService? _mlService;
+    private readonly MultiAgentMatchingService? _multiAgent;
+    private readonly GraphRAGService? _graphRAG;
 
-    public EnhancedMatchingService(KnowledgeGraphService graph, IAIService ai, AppDbContext db, ILogger<EnhancedMatchingService> logger)
+    public EnhancedMatchingService(
+        KnowledgeGraphService graph,
+        IAIService ai,
+        AppDbContext db,
+        ILogger<EnhancedMatchingService> logger,
+        MLMatchingService? mlService = null,
+        MultiAgentMatchingService? multiAgent = null,
+        GraphRAGService? graphRAG = null)
     {
         _graph = graph; _ai = ai; _db = db; _logger = logger;
+        _mlService = mlService;
+        _multiAgent = multiAgent;
+        _graphRAG = graphRAG;
     }
 
     /// <summary>
@@ -93,6 +108,121 @@ public class EnhancedMatchingService
         return new EnhancedMatchResult(
             job.Title, overallScore, dimensions, gapResult,
             learningPath, verification, suggestions, DateTime.Now);
+    }
+
+    /// <summary>
+    /// V2 三通道融合匹配：规则引擎 + ML预测 + 多智能体分析 + Graph RAG 增强。
+    /// 融合策略：规则(30%) + ML(25%) + 多Agent AI(35%) + Graph RAG(10%)
+    /// </summary>
+    public async Task<UnifiedMatchResult> MatchV2Async(string resumeText, int jobId)
+    {
+        var job = await _db.Jobs.FindAsync(jobId);
+        if (job == null) throw new Exception("岗位不存在");
+
+        var result = new UnifiedMatchResult
+        {
+            JobTitle = job.Title,
+            MatchedAt = DateTime.Now
+        };
+
+        // ── 通道 1: 规则引擎（可解释的基准线）──
+        var ruleResult = await MatchAsync(resumeText, jobId);
+        result.RuleScore = ruleResult.OverallScore;
+        result.RuleDimensions = ruleResult.Dimensions;
+        result.RuleSuggestions = ruleResult.Suggestions;
+
+        // ── 通道 2: ML 预测（统计精度）──
+        if (_mlService != null)
+        {
+            try
+            {
+                var resumeSkills = ExtractSkills(resumeText);
+                var gapResult = await _graph.GetSkillGapAsync(string.Join(",", resumeSkills), job.Title);
+                var expYears = ExtractWorkYears(resumeText);
+
+                var features = new MatchFeatures
+                {
+                    SkillMatchCount = gapResult.MatchedSkills.Count,
+                    RequiredSkillCount = gapResult.RequiredSkills.Count,
+                    SkillMatchRatio = (float)(gapResult.RequiredSkills.Count > 0
+                        ? (double)gapResult.MatchedSkills.Count / gapResult.RequiredSkills.Count
+                        : 0),
+                    EduMatchScore = (float)ScoreEducation(resumeText, job.Requirements),
+                    ExpYears = expYears,
+                    RequiredYears = ExtractRequiredYears(job.Requirements),
+                    ExpRatio = (float)(ExtractRequiredYears(job.Requirements) > 0
+                        ? (double)expYears / ExtractRequiredYears(job.Requirements)
+                        : 1),
+                    ResumeLength = resumeText.Length,
+                    HasPhone = resumeText.Contains("1") ? 1 : 0,
+                    HasEmail = resumeText.Contains("@") ? 1 : 0
+                };
+                features.ExpRatio = Math.Clamp(features.ExpRatio, 0, 2);
+
+                var mlPrediction = _mlService.Predict(features);
+                result.MLProbability = mlPrediction.Probability;
+                result.MLConfidence = mlPrediction.Confidence;
+                result.MLFeatureContributions = mlPrediction.Features;
+            }
+            catch (Exception ex) { _logger.LogWarning("[V2] ML通道失败: {msg}", ex.Message); }
+        }
+
+        // ── 通道 3: 多智能体（语义理解）──
+        if (_multiAgent != null)
+        {
+            try
+            {
+                var maResult = await _multiAgent.AnalyzeAsync(
+                    resumeText, job.Title, job.Requirements);
+                result.MultiAgentScore = maResult.OverallScore;
+                result.MultiAgentRecommendation = maResult.Recommendation;
+                result.MultiAgentQuestions = maResult.InterviewQuestions();
+                result.MultiAgentElapsedMs = maResult.ElapsedMs;
+            }
+            catch (Exception ex) { _logger.LogWarning("[V2] 多智能体通道失败: {msg}", ex.Message); }
+        }
+
+        // ── 通道 4: Graph RAG（图谱增强推荐）──
+        if (_graphRAG != null)
+        {
+            try
+            {
+                var skills = string.Join(",", ExtractSkills(resumeText).Take(10));
+                var ragResult = await _graphRAG.RecommendJobsAsync(skills, topN: 3);
+                result.GraphRAGSimilarJobs = ragResult.Recommendations
+                    .Where(r => r.JobTitle != job.Title)
+                    .Take(3)
+                    .Select(r => r.JobTitle)
+                    .ToList();
+
+                // 学习路径
+                var learningPath = await _graphRAG.GenerateLearningPathAsync(skills, job.Title);
+                result.GraphRAGLearningPath = learningPath;
+            }
+            catch (Exception ex) { _logger.LogWarning("[V2] GraphRAG通道失败: {msg}", ex.Message); }
+        }
+
+        // ── 融合评分 ──
+        result.FusionScore = ComputeFusionScore(result);
+        result.FusionLevel = result.FusionScore switch { >= 85 => "高度匹配", >= 70 => "基本匹配", >= 55 => "部分匹配", _ => "匹配较低" };
+
+        return result;
+    }
+
+    private static double ComputeFusionScore(UnifiedMatchResult r)
+    {
+        var ruleScore = r.RuleScore;
+        var mlScore = r.MLProbability.HasValue ? r.MLProbability.Value * 100 : ruleScore;
+        var maScore = r.MultiAgentScore ?? ruleScore;
+
+        // 三通道加权融合
+        return Math.Round(ruleScore * 0.30 + mlScore * 0.25 + maScore * 0.35 + ruleScore * 0.10, 1);
+    }
+
+    private static int ExtractRequiredYears(string requirements)
+    {
+        var match = Regex.Match(requirements, @"(\d+)\s*年");
+        return match.Success && int.TryParse(match.Groups[1].Value, out var y) ? y : 2;
     }
 
     /// <summary>执行批量测试：验证系统准确率</summary>
@@ -235,4 +365,35 @@ public class AccuracyReport
     public DateTime StartedAt { get; set; }
     public DateTime CompletedAt { get; set; }
     public List<TestResult> Results { get; set; } = new();
+}
+
+// ═══ V2 统一匹配结果 ═══
+public class UnifiedMatchResult
+{
+    public string JobTitle { get; set; } = "";
+    public DateTime MatchedAt { get; set; }
+
+    // 通道1: 规则评分
+    public double RuleScore { get; set; }
+    public List<MatchDimension>? RuleDimensions { get; set; }
+    public List<string>? RuleSuggestions { get; set; }
+
+    // 通道2: ML预测
+    public double? MLProbability { get; set; }
+    public string? MLConfidence { get; set; }
+    public Dictionary<string, double>? MLFeatureContributions { get; set; }
+
+    // 通道3: 多智能体
+    public double? MultiAgentScore { get; set; }
+    public string? MultiAgentRecommendation { get; set; }
+    public List<string>? MultiAgentQuestions { get; set; }
+    public long? MultiAgentElapsedMs { get; set; }
+
+    // 通道4: Graph RAG
+    public List<string>? GraphRAGSimilarJobs { get; set; }
+    public GraphRAGLearningPath? GraphRAGLearningPath { get; set; }
+
+    // 融合结果
+    public double FusionScore { get; set; }
+    public string FusionLevel { get; set; } = "";
 }

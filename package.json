@@ -10,10 +10,12 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx --fix"
   },
   "dependencies": {
+    "@antv/g6": "^5.1.1",
     "@element-plus/icons-vue": "^2.3.1",
     "@icon-park/vue-next": "^1.4.2",
     "@mediapipe/tasks-vision": "^0.10.35",
     "@microsoft/signalr": "^8.0.0",
+    "@playwright/test": "^1.60.0",
     "axios": "^1.6.7",
     "dayjs": "^1.11.10",
     "docx": "^9.6.1",
@@ -22,7 +24,9 @@
     "highlight.js": "^11.9.0",
     "js-cookie": "^3.0.5",
     "markdown-it": "^14.0.0",
+    "marked": "^18.0.4",
     "pinia": "^2.1.7",
+    "pptxgenjs": "^4.0.1",
     "sass": "^1.71.1",
     "vue": "^3.4.21",
     "vue-echarts": "^6.6.9",

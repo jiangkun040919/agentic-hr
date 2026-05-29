@@ -16,6 +16,7 @@ public interface IDeliveryService
     Task<DeliveryResponse> UpdateDeliveryInfoAsync(int id, DeliveryFormData data);
     Task SetAIInterviewPermissionAsync(int id, bool allow, DateTime? deadline = null);
     Task SaveResumeTextAsync(int id, string resumeText);
+    Task SaveResumeFilePathAsync(int id, string filePath);
     Task StartInternshipAsync(int id, StartInternshipRequest req, int operatedBy);
     Task FormalHireAsync(int id, FormalHireRequest req, int operatedBy);
 }
@@ -100,7 +101,8 @@ public class DeliveryService : IDeliveryService
             c.name, c.phone, c.email,
             c.edu, c.years, c.resumeUrl,
             delivery.Status, delivery.HrId, delivery.DeliverTime, delivery.UpdateTime, delivery.Remark,
-            delivery.AllowAIInterview, delivery.AIInterviewDeadline);
+            delivery.AllowAIInterview, delivery.AIInterviewDeadline,
+            delivery.ResumeText);
     }
 
     public async Task<DeliveryResponse> SubmitDeliveryAsync(DeliveryFormData data, int userId)
@@ -302,6 +304,14 @@ public class DeliveryService : IDeliveryService
         var delivery = await _context.Deliveries.FindAsync(id);
         if (delivery == null) throw new Exception("投递记录不存在");
         delivery.ResumeText = resumeText;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task SaveResumeFilePathAsync(int id, string filePath)
+    {
+        var delivery = await _context.Deliveries.FindAsync(id);
+        if (delivery == null) throw new Exception("投递记录不存在");
+        delivery.ContactResumeUrl = filePath;
         await _context.SaveChangesAsync();
     }
 

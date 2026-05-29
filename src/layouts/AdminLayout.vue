@@ -1,7 +1,10 @@
 <template>
   <el-container class="admin-layout">
+    <!-- ═══ 移动端遮罩 ═══ -->
+    <div v-if="mobileSidebarOpen" class="mobile-overlay" @click="closeMobileSidebar" />
+
     <!-- ═══ 侧边栏 (玻璃拟态) ═══ -->
-    <el-aside :width="isCollapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)'" class="admin-aside" :class="{ collapsed: isCollapsed }">
+    <el-aside :width="isCollapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)'" class="admin-aside" :class="{ collapsed: isCollapsed, 'mobile-open': mobileSidebarOpen }">
       <!-- 侧边栏发光背景 -->
       <div class="sidebar-glow-orb" />
 
@@ -39,6 +42,17 @@
         <el-menu-item index="/admin/recruitment-strategy">
           <el-icon><PieChart /></el-icon><span>招聘策略</span>
         </el-menu-item>
+        <el-menu-item index="/admin/benchmark">
+          <el-icon><DataLine /></el-icon><span>准确率评测</span>
+        </el-menu-item>
+        <el-menu-item index="/admin/compliance">
+          <el-icon><Checked /></el-icon><span>AI合规</span>
+        </el-menu-item>
+
+        <div class="menu-group-title" v-show="!isCollapsed">图谱智能</div>
+        <el-menu-item index="/admin/knowledge-graph">
+          <el-icon><Connection /></el-icon><span>知识图谱</span>
+        </el-menu-item>
       </el-menu>
 
       <!-- 底部用户区 -->
@@ -66,7 +80,9 @@
       <!-- 顶栏 (玻璃拟态) -->
       <el-header class="admin-header glass-panel">
         <div class="header-left">
-          <el-button class="collapse-btn" :icon="isCollapsed ? Expand : Fold" text @click="isCollapsed = !isCollapsed" />
+          <el-button class="collapse-btn" :icon="isCollapsed ? Expand : Fold" text @click="toggleSidebar" />
+          <!-- 移动端汉堡菜单 -->
+          <el-button class="mobile-menu-btn" :icon="Operation" text @click="toggleMobileSidebar" />
           <el-breadcrumb separator="/">
             <el-breadcrumb-item :to="{ path: '/admin' }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="currentRoute">{{ currentRoute }}</el-breadcrumb-item>
@@ -75,7 +91,7 @@
 
         <div class="header-right">
           <!-- 通知 -->
-          <el-popover placement="bottom" :width="360" trigger="click">
+          <el-popover placement="bottom" :width="360" trigger="click" @show="notifyStore.fetchNotifications()">
             <template #reference>
               <el-badge :value="notifyCount" :hidden="notifyCount === 0" class="header-badge">
                 <el-button :icon="Bell" circle text class="header-icon-btn" />
@@ -145,7 +161,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useNotificationStore } from '@/stores/notification'
 import { useTheme } from '@/utils/theme'
-import { Briefcase, DataAnalysis, MagicStick, Calendar, PieChart, ArrowDown, User, SwitchButton, VideoCamera, TrendCharts, Fold, Expand, Bell, Sunny, Moon } from '@element-plus/icons-vue'
+import { Briefcase, DataAnalysis, MagicStick, Calendar, PieChart, ArrowDown, User, SwitchButton, VideoCamera, TrendCharts, Fold, Expand, Bell, Sunny, Moon, Operation, Share, Monitor, DataLine, Checked, Connection, Collection } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -155,6 +171,35 @@ const notifyStore = useNotificationStore()
 const { toggleTheme, isDark } = useTheme()
 
 const isCollapsed = ref(false)
+const mobileSidebarOpen = ref(false)
+const isMobile = ref(window.innerWidth < 768)
+
+const toggleSidebar = () => {
+  if (isMobile.value) {
+    toggleMobileSidebar()
+  } else {
+    isCollapsed.value = !isCollapsed.value
+  }
+}
+
+const toggleMobileSidebar = () => {
+  mobileSidebarOpen.value = !mobileSidebarOpen.value
+}
+
+const closeMobileSidebar = () => {
+  mobileSidebarOpen.value = false
+}
+
+const handleResize = () => {
+  const wasMobile = isMobile.value
+  isMobile.value = window.innerWidth < 768
+  if (!isMobile.value && mobileSidebarOpen.value) {
+    mobileSidebarOpen.value = false
+  }
+  if (isMobile.value && !wasMobile) {
+    isCollapsed.value = true
+  }
+}
 
 const activeMenu = computed(() => route.path)
 const currentRoute = computed(() => route.meta.title as string)
@@ -170,11 +215,15 @@ const handleCommand = (command: string) => {
 let notifyTimer: any = null
 
 onMounted(() => {
+  // Auto-collapse on mobile
+  if (window.innerWidth < 768) isCollapsed.value = true
+  window.addEventListener('resize', handleResize)
   notifyStore.fetchUnreadCount()
   notifyTimer = setInterval(() => notifyStore.fetchUnreadCount(), 60000)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
   if (notifyTimer) clearInterval(notifyTimer)
 })
 </script>
@@ -182,6 +231,29 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .admin-layout {
   height: 100vh;
+  width: 100%;
+}
+
+// ====== 主题切换按钮 ======
+.theme-toggle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    background: var(--color-primary-bg);
+  }
 }
 
 // ====== 侧边栏 ======
@@ -203,7 +275,7 @@ onUnmounted(() => {
     width: 240px;
     height: 240px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(196, 169, 106, 0.06) 0%, transparent 70%);
     pointer-events: none;
   }
 }
@@ -230,7 +302,7 @@ onUnmounted(() => {
     justify-content: center;
     color: #fff;
     flex-shrink: 0;
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 12px rgba(196, 169, 106, 0.25);
   }
 
   .logo-text {
@@ -244,7 +316,7 @@ onUnmounted(() => {
   padding: var(--space-4) var(--space-5) var(--space-2);
   font-size: 11px;
   font-weight: var(--weight-semibold);
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   white-space: nowrap;
@@ -275,14 +347,14 @@ onUnmounted(() => {
     &:hover {
       background: var(--color-sidebar-hover);
       color: var(--color-sidebar-text-hover);
-      box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
+      box-shadow: inset 0 0 0 1px rgba(196, 169, 106, 0.10);
     }
 
     &.is-active {
       background: var(--color-sidebar-active);
       color: var(--color-sidebar-text-hover);
       font-weight: var(--weight-medium);
-      box-shadow: inset 3px 0 0 var(--color-primary), 0 0 12px rgba(99, 102, 241, 0.1);
+      box-shadow: inset 2px 0 0 var(--color-primary);
     }
   }
 }
@@ -320,7 +392,7 @@ onUnmounted(() => {
     color: #fff;
     font-weight: var(--weight-semibold);
     flex-shrink: 0;
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.25);
+    box-shadow: 0 0 10px rgba(196, 169, 106, 0.20);
   }
 
   .user-meta {
@@ -346,8 +418,8 @@ onUnmounted(() => {
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: #10B981;
-        box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+        background: #7A8B5E;
+        box-shadow: 0 0 6px rgba(122, 139, 94, 0.5);
       }
     }
   }
@@ -362,8 +434,10 @@ onUnmounted(() => {
 
 // ====== 右侧容器 ======
 .admin-right {
+  flex: 1;
   flex-direction: column;
   background: var(--color-bg);
+  min-width: 0;
 }
 
 // ====== 顶栏 (玻璃拟态) ======
@@ -458,6 +532,7 @@ onUnmounted(() => {
 
 // ====== 主内容区 ======
 .admin-main {
+  flex: 1;
   background: var(--color-bg);
   padding: var(--space-6);
   overflow-y: auto;
@@ -481,6 +556,64 @@ onUnmounted(() => {
       font-weight: var(--weight-semibold);
       color: var(--color-text);
     }
+  }
+}
+
+// ═══ 移动端响应式 ═══
+.mobile-menu-btn {
+  display: none !important;
+  color: var(--color-text-secondary);
+}
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+  .collapse-btn {
+    display: none !important;
+  }
+  .header-username {
+    display: none;
+  }
+  .admin-aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform var(--duration-slow) var(--ease-out);
+
+    &.collapsed {
+      transform: translateX(-100%);
+    }
+    &.mobile-open {
+      transform: translateX(0);
+      width: var(--sidebar-width) !important;
+    }
+  }
+  .mobile-overlay {
+    display: block;
+  }
+  .admin-main {
+    padding: var(--space-4);
+  }
+  .admin-header {
+    padding: 0 var(--space-3);
+  }
+  .header-right {
+    gap: var(--space-2);
+  }
+  .header-badge {
+    display: none;
   }
 }
 </style>

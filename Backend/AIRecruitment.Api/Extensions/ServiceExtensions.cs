@@ -139,6 +139,8 @@ internal static class ServiceExtensions
         services.AddScoped<IAIService, AIService>();
         services.AddScoped<IInterviewService, InterviewService>();
         services.AddScoped<IStatisticsService, StatisticsService>();
+            services.AddScoped<TemplateDrivenCollector>();
+        services.AddScoped<TemplateGenerationService>();
         services.AddScoped<IAIInterviewService, AIInterviewService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddSingleton<ICacheService, CacheService>();
@@ -193,6 +195,39 @@ internal static class ServiceExtensions
         // 赛事增强功能
         services.AddScoped<EnhancedMatchingService>();
         services.AddScoped<JobDiscoveryService>();
+
+        // ═══ V2 增强：ML + 多智能体 + Graph RAG ═══
+        services.AddSingleton<MLMatchingService>();
+        services.AddScoped<MultiAgentMatchingService>();
+        services.AddScoped<GraphRAGService>();
+
+        // 动态演化演示
+        services.AddScoped<EvolutionDemoService>();
+
+        // 图谱自演化引擎（真实数据驱动）
+        services.AddScoped<GraphEvolutionService>();
+
+        // 招聘决策智能引擎（可解释匹配 + 风险雷达 + WhatIf）
+        services.AddScoped<DecisionIntelligenceService>();
+
+        // 候选人端智能服务（成长路径 + 竞争力 + 透明匹配）
+        services.AddScoped<CandidateIntelligenceService>();
+
+        // 比赛专项：数据交叉验证 + 准确率评测
+        services.AddScoped<DataCrossValidationService>();
+        services.AddScoped<BenchmarkDataService>();
+
+        // 实时岗位采集
+        services.AddScoped<RealtimeJobCollectorService>();
+
+        // AI 公平性审计
+        services.AddScoped<FairnessAuditService>();
+
+        // Agentic AI 招聘专员
+        services.AddScoped<RecruitmentAgentService>();
+
+        // Excel 导出
+        services.AddScoped<ExportService>();
     }
 
     public static IServiceCollection AddAppHangfire(this IServiceCollection services, IConfiguration configuration)

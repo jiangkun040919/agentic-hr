@@ -43,10 +43,7 @@
             <span class="footer-text">还没有账号？</span>
             <router-link to="/register" class="footer-link gradient-text">立即注册</router-link>
           </div>
-          <div class="demo-hint">
-            <el-icon :size="14"><InfoFilled /></el-icon>
-            <span>演示账号：hr_admin / 123456</span>
-          </div>
+
         </div>
       </div>
     </div>
@@ -127,7 +124,6 @@ const handleLogin = async () => {
     .submit-btn { width: 100%; height: 44px; font-size: var(--text-md); font-weight: var(--weight-semibold); letter-spacing: 0.15em; background: var(--gradient-primary); border: none; border-radius: var(--radius-md); box-shadow: var(--glow-primary); transition: all var(--duration-fast) var(--ease-out); &:hover { box-shadow: var(--glow-primary-lg); transform: translateY(-1px); } }
   }
   .form-footer { text-align: center; margin-top: var(--space-6); .footer-text { color: var(--color-text-muted); font-size: var(--text-sm); } .footer-link { font-size: var(--text-sm); font-weight: var(--weight-medium); margin-left: var(--space-1); } }
-  .demo-hint { display: flex; align-items: center; justify-content: center; gap: var(--space-1); margin-top: var(--space-5); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-info-bg); font-size: var(--text-xs); color: var(--color-text-muted); }
 }
 
 @media (max-width: 768px) {

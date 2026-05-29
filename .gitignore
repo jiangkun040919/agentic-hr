@@ -2,3 +2,82 @@ node_modules/
 dist/
 bin/
 obj/
+
+# Environment files with secrets
+.env
+.env.*
+!env.example
+
+# Sensitive config
+**/appsettings.json
+**/appsettings.*.json
+!**/appsettings.template.json
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Logs
+*.log
+backend_log.txt
+build_log.txt
+
+# Crawler cache
+.scraper_cache/
+
+# Build outputs (already covered above but explicit)
+[Bb]in/
+[Oo]bj/
+*.dll
+*.exe
+*.pdb
+
+# User uploads
+wwwroot/uploads/
+
+# VS cache
+.vs/
+
+# Docs & presentations (keep in separate repo or releases)
+*.pptx
+*.docx
+*.doc
+
+# Project assistant
+.workbuddy/
+.claude/
+
+# Uploads
+wwwroot/
+
+# Temp/dev files
+*.bak
+temp_doc.txt
+CLAUDE.md
+push_agentic_hr.ps1
+
+# Scripts (one-off tools)
+scripts/
+
+# Docs (generated)
+对比实验报告.md
+比赛提交文档.md
+答辩文档.md
+种子岗位数据_300条.json
+
+# SQL (run once)
+Backend/create_ai_interview_tables.sql
+Backend/seed_templates.sql
+SQL_Update_AI_Interview_Permission.sql
+完整项目交付/

@@ -4,6 +4,12 @@ using Newtonsoft.Json;
 using AIRecruitment.Api.Models;
 using AIRecruitment.Api.Options;
 using System.Text;
+using System.Linq;
+using Polly;
+using Polly.Retry;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
+using Polly.Fallback;
 
 namespace AIRecruitment.Api.Services;
 
@@ -36,6 +42,7 @@ public class AIService : IAIService
     private readonly ISignalRService _signalR;
     private readonly AIOptions _aiOptions;
     private readonly ILogger<AIService> _logger;
+    private readonly ResiliencePipeline<string> _aiPipeline;
 
     public AIService(
         AppDbContext context,
@@ -48,6 +55,82 @@ public class AIService : IAIService
         _signalR = signalR;
         _aiOptions = aiOptions.Value;
         _logger = logger;
+
+        // ═══ Polly ResiliencePipeline: 重试 + 熔断 + 超时 + 降级 ═══
+        var retryOptions = new RetryStrategyOptions<string>
+        {
+            MaxRetryAttempts = 3,
+            Delay = TimeSpan.FromSeconds(2),
+            UseJitter = true,
+            BackoffType = DelayBackoffType.Exponential,
+            OnRetry = args =>
+            {
+                _logger.LogWarning(
+                    "[Polly重试] 第 {Attempt} 次重试, 等待 {Delay}ms, 异常: {Exception}",
+                    args.AttemptNumber + 1,
+                    args.RetryDelay.TotalMilliseconds,
+                    args.Outcome.Exception?.Message ?? "未知错误");
+                return ValueTask.CompletedTask;
+            }
+        };
+
+        var circuitBreakerOptions = new CircuitBreakerStrategyOptions<string>
+        {
+            FailureRatio = 1.0,
+            MinimumThroughput = 5,
+            BreakDuration = TimeSpan.FromSeconds(30),
+            OnOpened = args =>
+            {
+                _logger.LogError(
+                    "[Polly熔断] 熔断器打开! 持续 {BreakDuration}秒, 原因: {Exception}",
+                    args.BreakDuration.TotalSeconds,
+                    args.Outcome.Exception?.Message ?? "连续失败");
+                return ValueTask.CompletedTask;
+            },
+            OnClosed = args =>
+            {
+                _logger.LogInformation("[Polly熔断] 熔断器关闭，恢复调用");
+                return ValueTask.CompletedTask;
+            },
+            OnHalfOpened = args =>
+            {
+                _logger.LogInformation("[Polly熔断] 熔断器半开，尝试探测调用");
+                return ValueTask.CompletedTask;
+            }
+        };
+
+        var timeoutOptions = new TimeoutStrategyOptions
+        {
+            Timeout = TimeSpan.FromSeconds(30),
+            OnTimeout = args =>
+            {
+                _logger.LogError("[Polly超时] AI调用超时 ({Timeout}秒), 触发降级",
+                    args.Timeout.TotalSeconds);
+                return ValueTask.CompletedTask;
+            }
+        };
+
+        var fallbackOptions = new FallbackStrategyOptions<string>
+        {
+            FallbackAction = static _ =>
+            {
+                return new ValueTask<Outcome<string>>(
+                    Outcome.FromResult("AI服务暂时不可用，请稍后重试。"));
+            },
+            OnFallback = args =>
+            {
+                _logger.LogWarning("[Polly降级] AI调用降级, 返回默认提示. 异常: {Exception}",
+                    args.Outcome.Exception?.Message ?? "超时/熔断");
+                return ValueTask.CompletedTask;
+            }
+        };
+
+        _aiPipeline = new ResiliencePipelineBuilder<string>()
+            .AddRetry(retryOptions)
+            .AddCircuitBreaker(circuitBreakerOptions)
+            .AddTimeout(timeoutOptions)
+            .AddFallback(fallbackOptions)
+            .Build();
     }
 
     private async Task<string> CallAIAsync(string systemPrompt, string userPrompt)
@@ -1108,18 +1191,46 @@ public class AIService : IAIService
         return text.Trim();
     }
 
-    /// <summary>通用 AI 对话接口</summary>
+    /// <summary>通用 AI 对话接口（招聘领域约束） — 含 Polly 熔断/重试/降级</summary>
     public async Task<string> ChatAsync(string prompt)
     {
-        try
+        // ═══ 领域边界检查：非招聘相关问题拒答 ═══
+        var domainKeywords = new[] {
+            "招聘", "岗位", "技能", "简历", "面试", "入职", "JD", "职位", "候选人",
+            "人才", "HR", "求职", "工作", "匹配", "需求", "薪资", "学历", "经验",
+            "job", "skill", "resume", "interview", "hire", "candidate", "talent",
+            "图谱", "演化", "分析", "岗位需求", "人岗", "评估", "招聘策略"
+        };
+        var promptLower = prompt.ToLower();
+        var isDomainRelated = domainKeywords.Any(kw => promptLower.Contains(kw.ToLower()));
+
+        if (!isDomainRelated)
         {
-            return await CallAIAsync("你是招聘领域AI助手，简洁专业地回答。", prompt);
+            return "抱歉，我是企业智能招聘领域的AI助手，仅能回答与招聘、岗位、技能、简历、面试、人才评估相关的问题。请提出招聘相关的问题。";
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning("ChatAsync failed: {msg}", ex.Message);
-            return string.Empty;
-        }
+
+        var systemPrompt = @"你是企业智能招聘领域的专业AI助手。严格遵守以下规则：
+1. 你只回答与招聘、岗位分析、技能评估、简历解析、面试管理、人才匹配相关的问题
+2. 如果问题涉及以上领域之外的任何话题（如天气、娱乐、编程、通用知识等），礼貌拒绝并引导回招聘领域
+3. 回答应简洁、专业，聚焦招聘场景
+4. 数据驱动的建议优先，避免空泛的主观判断
+5. 使用中文回答，专业术语保留英文
+
+## Few-shot 示例
+
+Q: Java开发工程师需要哪些核心技能？
+A: Java开发工程师的核心技能包括：Spring Boot/Spring Cloud微服务框架、MySQL/Redis数据存储、JVM调优、多线程并发编程、Docker容器化部署、Git版本控制。中高级岗位还需掌握分布式系统设计、消息队列（Kafka/RabbitMQ）、CI/CD流程、系统性能优化。
+
+Q: 如何评估一个候选人的匹配度？
+A: 建议从四个维度综合评估：1）学历匹配（20%权重），是否满足岗位学历要求；2）经验匹配（20%），工作年限与岗位级别是否对应；3）技能匹配（35%），核心技能覆盖率和熟练度；4）简历完整度（25%），信息完整性反映求职态度。综合得分≥70分为高匹配，50-69分为基本匹配。
+
+Q: 今天天气怎么样？
+A: 抱歉，我是企业智能招聘领域的AI助手，无法回答天气相关问题。我可以帮您分析岗位需求、评估候选人匹配度、优化JD描述等招聘相关工作。";
+
+        // ═══ 使用 Polly ResiliencePipeline 包裹 AI 调用 ═══
+        return await _aiPipeline.ExecuteAsync(
+            async token => await CallAIAsync(systemPrompt, prompt),
+            CancellationToken.None);
     }
 
     private static JDGenerateResult GetFallbackJDResult(string brief)

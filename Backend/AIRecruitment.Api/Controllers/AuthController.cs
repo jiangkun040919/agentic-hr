@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AIRecruitment.Api.Models.DTOs;
 using AIRecruitment.Api.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace AIRecruitment.Api.Controllers;
 
@@ -10,10 +11,12 @@ namespace AIRecruitment.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly AppDbContext _db;
 
-    public AuthController(IUserService userService)
+    public AuthController(IUserService userService, AppDbContext db)
     {
         _userService = userService;
+        _db = db;
     }
 
     [HttpPost("login")]
@@ -102,4 +105,30 @@ public class AuthController : ControllerBase
             return BadRequest(new { code = 400, message = ex.Message });
         }
     }
+
+    /// <summary>
+    /// 删除演示账号（仅限demo用户）
+    /// </summary>
+    [HttpDelete("users/{username}")]
+    public async Task<IActionResult> DeleteUser(string username)
+    {
+        var user = await _db.SysUsers.FirstOrDefaultAsync(u => u.Username == username);
+        if (user == null) return Ok(new { code = 200, message = "用户不存在或已删除" });
+        
+        try
+        {
+            // Delete related records first (FK cascade not configured)
+            var deliveries = await _db.Deliveries.Where(d => d.CandidateId == user.UserId).ToListAsync();
+            _db.Deliveries.RemoveRange(deliveries);
+            
+            _db.SysUsers.Remove(user);
+            await _db.SaveChangesAsync();
+            return Ok(new { code = 200, message = $"已删除用户 {username}" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { code = 500, message = $"删除失败: {ex.Message}" });
+        }
+    }
+
 }

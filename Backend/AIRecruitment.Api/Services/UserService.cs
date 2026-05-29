@@ -104,7 +104,12 @@ public class UserService : IUserService
         var user = await _context.SysUsers.FindAsync(userId);
         if (user == null) throw new Exception("用户不存在");
 
-        return new UserInfoResponse(user.UserId, user.Username, user.Role, user.RealName, user.Phone, user.Email, null);
+        var candidate = await _context.Candidates.FirstOrDefaultAsync(c => c.UserId == userId);
+        return new UserInfoResponse(user.UserId, user.Username, user.Role,
+            user.RealName, user.Phone, user.Email, null,
+            candidate?.Education, candidate?.WorkYears,
+            candidate?.ResumeContent, candidate?.ResumeUrl,
+            candidate?.CandidateId);
     }
 
     public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
@@ -144,6 +149,19 @@ public class UserService : IUserService
             user.Phone = request.Phone.Trim();
         if (!string.IsNullOrWhiteSpace(request.Email))
             user.Email = request.Email.Trim();
+
+        // 同时更新 Candidate 表的简历字段
+        var candidate = await _context.Candidates.FirstOrDefaultAsync(c => c.UserId == userId);
+        if (candidate != null)
+        {
+            if (request.Education != null) candidate.Education = request.Education;
+            if (request.WorkYears.HasValue) candidate.WorkYears = request.WorkYears;
+            if (request.ResumeContent != null) candidate.ResumeContent = request.ResumeContent;
+            if (request.ResumeUrl != null) candidate.ResumeUrl = request.ResumeUrl;
+            if (!string.IsNullOrWhiteSpace(request.RealName)) candidate.RealName = request.RealName.Trim();
+            if (!string.IsNullOrWhiteSpace(request.Phone)) candidate.Phone = request.Phone.Trim();
+            if (!string.IsNullOrWhiteSpace(request.Email)) candidate.Email = request.Email?.Trim();
+        }
 
         await _context.SaveChangesAsync();
     }

@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "AiRecruitment@2024"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
     ports:
       - "1433:1433"
     volumes:
@@ -43,7 +43,7 @@ services:
     container_name: airecruit-neo4j
     restart: unless-stopped
     environment:
-      NEO4J_AUTH: neo4j/password
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
       NEO4J_PLUGINS: '["apoc"]'
     ports:
       - "7474:7474"
@@ -65,7 +65,7 @@ services:
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -108,12 +108,20 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5000
-      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=AIRecruitment;User=sa;Password=AiRecruitment@2024;TrustServerCertificate=True
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=AIRecruitment;User=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
       ConnectionStrings__Redis: redis:6379
       Neo4j__Uri: bolt://neo4j:7687
       Neo4j__User: neo4j
-      Neo4j__Password: password
+      Neo4j__Password: ${NEO4J_PASSWORD}
       MinIO__Endpoint: minio:9000
+      MinIO__AccessKey: minioadmin
+      MinIO__SecretKey: ${MINIO_ROOT_PASSWORD}
+      MinIO__BucketName: recruitment
+      Jwt__Key: ${JWT_KEY}
+      AI__Provider: minimax
+      AI__ApiKey: ${AI__ApiKey}
+      AI__Model: MiniMax-M2.7
+      AI__BaseUrl: https://api.minimax.chat/v1
       RabbitMQ__Host: rabbitmq
     depends_on:
       sqlserver:

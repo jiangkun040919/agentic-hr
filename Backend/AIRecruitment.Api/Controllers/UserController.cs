@@ -40,7 +40,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> CreateInterviewer([FromBody] CreateInterviewerRequest request)
     {
         var userRole = User.FindFirst("role")?.Value;
-        if (userRole != "hr")
+        if (userRole != "hr" && userRole != "admin")
         {
             return Forbid();
         }
@@ -79,7 +79,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> UpdateInterviewer(int id, [FromBody] UpdateInterviewerRequest request)
     {
         var userRole = User.FindFirst("role")?.Value;
-        if (userRole != "hr")
+        if (userRole != "hr" && userRole != "admin")
         {
             return Forbid();
         }
@@ -108,7 +108,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> DeleteInterviewer(int id)
     {
         var userRole = User.FindFirst("role")?.Value;
-        if (userRole != "hr")
+        if (userRole != "hr" && userRole != "admin")
         {
             return Forbid();
         }

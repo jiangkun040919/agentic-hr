@@ -81,7 +81,7 @@
     </div>
 
     <el-card v-else v-loading="loading">
-      <el-table :data="deliveries" stripe @row-click="aiMode ? handleAISelect : goToDetail" @selection-change="handleSelectionChange" ref="tableRef">
+      <el-table :data="deliveries" stripe @row-click="handleRowClick" @selection-change="handleSelectionChange" ref="tableRef">
         <el-table-column type="selection" width="40" />
         <el-table-column label="#" width="50">
           <template #default="{ $index }">{{ String((searchParams.page - 1) * searchParams.pageSize + $index + 1).padStart(3, '0') }}</template>
@@ -584,8 +584,8 @@ const formatShortDate = (date: string) => date ? dayjs(date).format('MM-DD') : '
 // ── 看板列定义 ──
 const kanbanColumns = computed(() => {
   const cols = [
-    { status: 0, label: '待查看', color: '#F59E0B', items: [] as any[] },
-    { status: 1, label: '已查看', color: '#3B82F6', items: [] as any[] },
+    { status: 0, label: '待查看', color: '#B08040', items: [] as any[] },
+    { status: 1, label: '已查看', color: '#6B7B8D', items: [] as any[] },
     { status: 2, label: '面试中', color: '#8B5CF6', items: [] as any[] },
     { status: 3, label: '实习中', color: '#06B6D4', items: [] as any[] },
     { status: 4, label: '正式入职', color: '#059669', items: [] as any[] },
@@ -642,6 +642,11 @@ const getScoreLevelText = (score: number) => {
 
 const goToDetail = (id: number) => {
   router.push(`/admin/resumes/${id}`)
+}
+
+const handleRowClick = (row: any) => {
+  if (aiMode.value) handleAISelect(row)
+  else goToDetail(row.deliveryId)
 }
 
 const handleAISelect = (row: any) => {

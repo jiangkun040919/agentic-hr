@@ -7,10 +7,10 @@ namespace AIRecruitment.Api.Services;
 public interface IStatisticsService
 {
     Task<DashboardResponse> GetDashboardDataAsync(int? hrId);
-    Task<FunnelDataResponse> GetFunnelDataAsync(int hrId, DateTime? startDate, DateTime? endDate);
+    Task<FunnelFlatResponse> GetFunnelDataAsync(int hrId, DateTime? startDate, DateTime? endDate);
     Task<List<JobStatItem>> GetJobStatsAsync(int hrId, DateTime? startDate, DateTime? endDate);
     Task<List<SourceStatItem>> GetResumeSourceStatsAsync(DateTime? startDate, DateTime? endDate);
-    Task<List<TrendItem>> GetTrendDataAsync(int days, string? type);
+    Task<TrendChartResponse> GetTrendDataAsync(int days, string? type);
     Task<FlowPoolResponse> GetFlowPoolDataAsync(int hrId);
     Task<MultiTrendResponse> GetMultiTrendDataAsync(string dimension);
     Task<List<HireRateItem>> GetHireRateDataAsync(int hrId, string dimension);
@@ -35,8 +35,8 @@ public class StatisticsService : IStatisticsService
         // 统计数据：hrId=null 表示 admin 看全量
         var openJobs = await _context.Jobs.CountAsync(j => (hrId == null || j.HrId == hrId) && j.Status == 1);
         var totalDeliveries = await _context.Deliveries.CountAsync(d => hrId == null || d.HrId == hrId);
-        var interviews = await _context.Interviews.CountAsync(i => (hrId == null || i.InterviewerId == hrId) && i.ScheduleTime >= today && i.ScheduleTime < today.AddDays(1));
-        var hired = await _context.Deliveries.CountAsync(d => (hrId == null || d.HrId == hrId) && (d.Status == 3 || d.Status == 4));
+        var interviews = await _context.Deliveries.CountAsync(d => (hrId == null || d.HrId == hrId) && d.Status >= 2);
+        var hired = await _context.Deliveries.CountAsync(d => (hrId == null || d.HrId == hrId) && d.Status == 4);
 
         var stats = new Dictionary<string, int>
         {
@@ -103,31 +103,33 @@ public class StatisticsService : IStatisticsService
                 d.AllowAIInterview, d.AIInterviewDeadline);
         }).ToList();
 
-        return new DashboardResponse(stats, pendingResumes, todayInterviews, recentDeliveries);
+        // 部门岗位分布（饼图数据）— 客户端聚合避免 EF Core GroupBy 翻译问题
+        var deptList = await _context.Jobs
+            .Where(j => (hrId == null || j.HrId == hrId) && j.Status == 1)
+            .Select(j => j.Dept ?? "其他")
+            .ToListAsync();
+        var deptDistribution = deptList
+            .GroupBy(d => d)
+            .Select(g => new DeptDistribution(g.Key, g.Count()))
+            .OrderByDescending(d => d.Value)
+            .ToList();
+
+        return new DashboardResponse(stats, pendingResumes, todayInterviews, recentDeliveries, deptDistribution);
     }
 
-    public async Task<FunnelDataResponse> GetFunnelDataAsync(int hrId, DateTime? startDate, DateTime? endDate)
+    public async Task<FunnelFlatResponse> GetFunnelDataAsync(int hrId, DateTime? startDate, DateTime? endDate)
     {
-        var query = _context.Deliveries.Where(d => d.HrId == hrId);
+        var query = _context.Deliveries.AsQueryable();
+        if (hrId > 0) query = query.Where(d => d.HrId == hrId);
         if (startDate.HasValue) query = query.Where(d => d.DeliverTime >= startDate);
         if (endDate.HasValue) query = query.Where(d => d.DeliverTime <= endDate);
 
-        var total = await query.CountAsync();
-        var reviewed = await query.CountAsync(d => d.Status >= 1);
+        var applied = await query.CountAsync();
+        var screened = await query.CountAsync(d => d.Status >= 1);
         var interviewed = await query.CountAsync(d => d.Status >= 2);
-        var oneInterview = await query.CountAsync(d => d.Status >= 2);
         var hired = await query.CountAsync(d => d.Status == 4);
 
-        var data = new List<FunnelItem>
-        {
-            new("投递简历", total),
-            new("简历筛选", reviewed),
-            new("面试邀请", interviewed),
-            new("一面", oneInterview),
-            new("正式入职", hired)
-        };
-
-        return new FunnelDataResponse(data);
+        return new FunnelFlatResponse(applied, screened, interviewed, hired);
     }
 
     public async Task<List<JobStatItem>> GetJobStatsAsync(int hrId, DateTime? startDate, DateTime? endDate)
@@ -171,19 +173,32 @@ public class StatisticsService : IStatisticsService
         return sources;
     }
 
-    public async Task<List<TrendItem>> GetTrendDataAsync(int days, string? type)
+    public async Task<TrendChartResponse> GetTrendDataAsync(int days, string? type)
     {
-        var trends = new List<TrendItem>();
+        var labels = new List<string>();
+        var deliveryData = new List<int>();
+        var hiredData = new List<int>();
         var now = DateTime.Now;
 
         for (int i = days - 1; i >= 0; i--)
         {
-            var date = now.AddDays(-i).ToString("MM-dd");
-            var value = new Random().Next(5, 20);
-            trends.Add(new TrendItem(date, value));
+            var date = now.AddDays(-i);
+            labels.Add(date.ToString("MM-dd"));
+            var startOfDay = date.Date;
+            var endOfDay = startOfDay.AddDays(1);
+
+            // 实际 DB 查询当天投递数
+            var delivery = await _context.Deliveries
+                .CountAsync(d => d.DeliverTime >= startOfDay && d.DeliverTime < endOfDay);
+            deliveryData.Add(delivery);
+
+            // 实际 DB 查询当天入职数（status == 4 且 updateTime 在当天）
+            var hired = await _context.Deliveries
+                .CountAsync(d => d.Status == 4 && d.UpdateTime >= startOfDay && d.UpdateTime < endOfDay);
+            hiredData.Add(hired);
         }
 
-        return trends;
+        return new TrendChartResponse(labels, deliveryData, hiredData);
     }
 
     public async Task<MultiTrendResponse> GetMultiTrendDataAsync(string dimension)
@@ -358,7 +373,7 @@ public class StatisticsService : IStatisticsService
     public async Task<List<HotJobDetail>> GetHotJobDetailsAsync(int hrId)
     {
         var jobs = await _context.Jobs
-            .Where(j => j.HrId == hrId)
+            .Where(j => hrId <= 0 || j.HrId == hrId)
             .ToListAsync();
 
         var result = new List<HotJobDetail>();
@@ -403,6 +418,8 @@ public class StatisticsService : IStatisticsService
 public record JobStatItem(string JobTitle, int Count);
 public record SourceStatItem(string Source, int Count);
 public record TrendItem(string Date, int Value);
+public record FunnelFlatResponse(int Applied, int Screened, int Interviewed, int Hired);
+public record TrendChartResponse(List<string> Labels, List<int> DeliveryData, List<int> HiredData);
 
 public record FlowPersonItem(
     string Id,

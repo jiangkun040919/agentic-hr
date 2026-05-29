@@ -40,13 +40,24 @@
       <div class="screening-content" :class="{ 'panel-open': inlinePanelVisible }">
         <!-- 看板视图 -->
         <div v-if="viewMode === 'kanban'" v-loading="loading" class="kanban-board">
-          <div v-for="col in kanbanColumns" :key="col.status" class="kanban-column">
+          <div v-for="col in kanbanColumns" :key="col.status" class="kanban-column"
+               :class="{ 'drag-over': dragOverColumn === col.status }"
+               @dragover.prevent="onDragOver($event, col.status)"
+               @dragenter.prevent="onDragEnter(col.status)"
+               @dragleave="onDragLeave(col.status)"
+               @drop="onDrop(col.status)">
             <div class="kanban-col-header" :style="{ borderTopColor: col.color }">
               <span class="kanban-col-title">{{ col.label }}</span>
               <el-tag :color="col.color" effect="dark" size="small" round>{{ col.items.length }}</el-tag>
             </div>
             <div class="kanban-col-body">
-              <div v-for="item in col.items" :key="item.deliveryId" class="kanban-card" @click="openInlinePanel(item)">
+              <div v-for="item in col.items" :key="item.deliveryId"
+                   class="kanban-card"
+                   :class="{ 'is-dragging': draggedItem?.deliveryId === item.deliveryId }"
+                   draggable="true"
+                   @dragstart="onDragStart($event, item)"
+                   @dragend="onDragEnd"
+                   @click="openInlinePanel(item)">
                 <div class="kanban-card-top">
                   <span class="kanban-card-name">{{ item.candidateName }}</span>
                   <el-tag :type="getStatusTagType(item.status)" size="small" round>{{ getStatusText(item.status) }}</el-tag>
@@ -94,16 +105,11 @@
                 <el-tag :type="getStatusType(row.status)" size="small">{{ getStatusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="AI操作" width="270" fixed="right">
+            <el-table-column label="AI操作" width="170" fixed="right">
               <template #default="{ row }">
                 <div class="ai-actions">
-                  <el-button size="small" type="primary" :loading="aiLoading === row.deliveryId && inlinePanelType === 'analyze'" @click.stop="handleInlineAction(row, 'analyze')">
-                    <el-icon><MagicStick /></el-icon>解析
-                  </el-button>
-                  <el-button size="small" type="success" :loading="aiLoading === row.deliveryId && inlinePanelType === 'score'" @click.stop="handleInlineAction(row, 'score')">
-                    <el-icon><TrendCharts /></el-icon>评分
-                  </el-button>
-                  <el-button size="small" type="primary" plain @click.stop="$router.push(`/admin/resumes/${row.deliveryId}`)">详情</el-button>
+                  <el-button size="small" type="primary" plain @click.stop="$router.push(`/admin/resumes/${row.deliveryId}`)">查看</el-button>
+                  <el-button size="small" type="danger" plain @click.stop="handleDeleteDelivery(row)">删除</el-button>
                 </div>
               </template>
             </el-table-column>
@@ -123,25 +129,25 @@
           </div>
 
           <el-tabs v-model="inlinePanelType" class="panel-tabs" @tab-change="onPanelTabChange">
-            <el-tab-pane label="AI简历解析" name="analyze" />
-            <el-tab-pane label="智能匹配评分" name="score" />
+            <el-tab-pane label="图谱分析" name="analyze" />
+            <el-tab-pane label="证据链图谱" name="evidence" />
             <el-tab-pane label="面试建议" name="question" />
           </el-tabs>
 
           <div class="panel-body" v-loading="aiLoading === activeCandidate?.deliveryId">
-            <!-- AI简历解析 -->
+            <!-- 图谱分析 -->
             <template v-if="inlinePanelType === 'analyze' && panelResult">
               <div class="tpr-header">
                 <div class="tpr-score-ring">
-                  <el-progress type="circle" :percentage="panelResult.matchScore || 0" :color="scoreColor(panelResult.matchScore || 50)" :width="72" :stroke-width="6" />
+                  <el-progress type="circle" :percentage="panelResult.matchRate || panelResult.overallScore || 0" :color="scoreColor(panelResult.matchRate || panelResult.overallScore || 50)" :width="72" :stroke-width="6" />
                   <div class="tpr-score-label">综合匹配</div>
                 </div>
                 <div class="tpr-meta">
-                  <div class="tpr-name">{{ panelResult.name || activeCandidate?.candidateName || '-' }}</div>
-                  <div class="tpr-info">{{ panelResult.education || '-' }} · {{ panelResult.workYears || 0 }}年经验</div>
+                  <div class="tpr-name">{{ activeCandidate?.candidateName || '-' }}</div>
+                  <div class="tpr-info">{{ activeCandidate?.jobTitle || '' }}</div>
                   <div class="tpr-tags">
-                    <el-tag size="small" :type="panelResult.hiringSuggestion?.includes('录用') ? 'success' : 'warning'" round>
-                      {{ panelResult.hiringSuggestion || '待评估' }}
+                    <el-tag size="small" :type="(panelResult.matchRate || panelResult.overallScore) >= 70 ? 'success' : 'warning'" round>
+                      {{ (panelResult.matchRate || panelResult.overallScore) >= 70 ? '推荐面试' : '需评估' }}
                     </el-tag>
                   </div>
                 </div>
@@ -157,95 +163,44 @@
                     </el-tag>
                   </div>
                   <div class="skill-col missing">
-                    <div class="skill-col-title">待提升 ({{ (panelResult.missingSkills || []).length }})</div>
-                    <el-tag v-for="(s, i) in (panelResult.missingSkills || []).slice(0, 6)" :key="'x'+i" type="danger" effect="plain" size="small" style="margin:2px">
+                    <div class="skill-col-title">待补足 ({{ (panelResult.gapSkills || panelResult.missingSkills || []).length }})</div>
+                    <el-tag v-for="(s, i) in (panelResult.gapSkills || panelResult.missingSkills || []).slice(0, 6)" :key="'x'+i" type="danger" effect="plain" size="small" style="margin:2px">
                       {{ typeof s === 'string' ? s : s.skill || s }}
                     </el-tag>
                   </div>
                 </div>
               </div>
 
-              <div class="tpr-section" v-if="panelResult.strengths?.length || panelResult.weaknesses?.length">
-                <div class="tpr-section-title"><el-icon><TrendCharts /></el-icon> 匹配分析</div>
-                <div class="sw-grid">
-                  <div class="sw-col" v-if="panelResult.strengths?.length">
-                    <div class="sw-col-title">优势</div>
-                    <div v-for="(s, i) in panelResult.strengths.slice(0, 4)" :key="'st'+i" class="sw-item">{{ s }}</div>
-                  </div>
-                  <div class="sw-col" v-if="panelResult.weaknesses?.length">
-                    <div class="sw-col-title">关注点</div>
-                    <div v-for="(w, i) in panelResult.weaknesses.slice(0, 4)" :key="'wk'+i" class="sw-item">{{ w }}</div>
-                  </div>
-                </div>
+              <div class="tpr-section" v-if="panelResult.aiDecisionAdvice">
+                <div class="tpr-section-title"><el-icon><TrendCharts /></el-icon> AI决策建议</div>
+                <p style="font-size:13px;color:var(--color-text-secondary);line-height:1.6">{{ panelResult.aiDecisionAdvice }}</p>
               </div>
 
-              <div class="tpr-section" v-if="panelResult.interviewQuestions?.length">
-                <div class="tpr-section-title"><el-icon><ChatDotRound /></el-icon> 面试建议</div>
-                <div v-for="(q, i) in panelResult.interviewQuestions.slice(0, 3)" :key="'q'+i" class="iq-item">
-                  <div class="iq-num">{{ i + 1 }}</div>
-                  <div class="iq-body">
-                    <div class="iq-question">{{ q.question }}</div>
-                    <div class="iq-meta"><el-tag size="small">{{ q.category }}</el-tag> {{ q.purpose }}</div>
+              <div class="tpr-section" v-if="panelResult.riskResult">
+                <div class="tpr-section-title"><el-icon><WarningFilled /></el-icon> 录用风险</div>
+                <div class="detail-items">
+                  <div v-for="d in (panelResult.riskResult.dimensions || []).slice(0, 3)" :key="d.name" class="detail-item">
+                    <div class="item-header">
+                      <span class="item-label">{{ d.name }}</span>
+                      <span>{{ d.score }} · {{ d.risk }}</span>
+                    </div>
+                    <el-progress :percentage="d.score" :color="d.score >= 70 ? 'var(--color-success)' : d.score >= 50 ? 'var(--color-warning)' : 'var(--color-danger)'" :show-text="false" :stroke-width="6" />
                   </div>
                 </div>
-              </div>
-
-              <div class="tpr-section" v-if="panelResult.workExperience?.length">
-                <div class="tpr-section-title"><el-icon><Briefcase /></el-icon> 工作经历</div>
-                <el-timeline>
-                  <el-timeline-item v-for="(exp, i) in panelResult.workExperience.slice(0, 3)" :key="'we'+i" :timestamp="exp.startDate || exp.duration || ''" placement="top">
-                    <b>{{ exp.company || exp.position }}</b>
-                    <span v-if="exp.company && exp.position"> — {{ exp.position }}</span>
-                    <div style="color:var(--color-text-secondary);font-size:12px;margin-top:4px">{{ exp.description }}</div>
-                  </el-timeline-item>
-                </el-timeline>
               </div>
             </template>
 
-            <!-- 智能匹配评分 -->
-            <template v-else-if="inlinePanelType === 'score' && panelResult">
-              <div class="score-main-card">
-                <div class="score-ring-wrapper">
-                  <el-progress type="circle" :percentage="panelResult.score || 0" :color="scoreColor(panelResult.score || 0)" :width="120" :stroke-width="10" :show-text="false" />
-                  <div class="score-content">
-                    <span class="score-value" :style="{ color: scoreColor(panelResult.score || 0) }">{{ panelResult.score || 0 }}</span>
-                    <span class="score-unit">分</span>
-                    <span class="score-text">综合匹配度</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="detail-items" style="margin-top:16px">
-                <div class="detail-item">
-                  <div class="item-header">
-                    <span class="item-label">技能匹配</span>
-                    <span class="item-value skill-score">{{ panelResult.skillScore || panelResult.strengths?.length * 10 || 70 }}%</span>
-                  </div>
-                  <el-progress :percentage="scorePercent.skill" color="var(--color-success)" :show-text="false" :stroke-width="6" />
-                </div>
-                <div class="detail-item">
-                  <div class="item-header">
-                    <span class="item-label">经验匹配</span>
-                    <span class="item-value exp-score">{{ panelResult.expScore || 75 }}%</span>
-                  </div>
-                  <el-progress :percentage="scorePercent.exp" color="var(--color-primary)" :show-text="false" :stroke-width="6" />
-                </div>
-                <div class="detail-item">
-                  <div class="item-header">
-                    <span class="item-label">学历匹配</span>
-                    <span class="item-value edu-score">{{ panelResult.eduScore || 85 }}%</span>
-                  </div>
-                  <el-progress :percentage="scorePercent.edu" color="var(--color-warning)" :show-text="false" :stroke-width="6" />
-                </div>
-              </div>
-
-              <div v-if="panelResult.strengths?.length" style="margin-top:16px">
-                <div class="section-label success">优势</div>
-                <el-tag v-for="(s, i) in panelResult.strengths" :key="'st'+i" type="success" effect="light" style="margin:2px">{{ s }}</el-tag>
-              </div>
-              <div v-if="panelResult.weaknesses?.length" style="margin-top:12px">
-                <div class="section-label danger">风险点</div>
-                <el-tag v-for="(w, i) in panelResult.weaknesses" :key="'wk'+i" type="warning" effect="light" style="margin:2px">{{ w }}</el-tag>
+            <!-- 证据链图谱 -->
+            <template v-else-if="inlinePanelType === 'evidence'">
+              <GraphCanvas
+                :nodes="evidenceNodes"
+                :edges="evidenceEdges"
+                :height="380"
+                :loading="aiLoading === activeCandidate?.deliveryId"
+                @node-click="onEvidenceNodeClick"
+              />
+              <div v-if="!panelResult && aiLoading !== activeCandidate?.deliveryId" style="text-align:center;padding:20px;color:var(--color-text-secondary)">
+                请先在「图谱分析」中加载数据
               </div>
             </template>
 
@@ -295,15 +250,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { MagicStick, TrendCharts, ChatDotRound, Sort, Grid, List, Close, Check, Calendar, Briefcase } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { MagicStick, TrendCharts, ChatDotRound, Sort, Grid, List, Close, Check, Calendar, Briefcase, WarningFilled, Connection } from '@element-plus/icons-vue'
 import { useResumeStore } from '@/stores/resume'
 import { useJobStore } from '@/stores/job'
-import { analyzeResume, scoreResume, generateQuestions } from '@/api/ai'
+import { generateQuestions } from '@/api/ai'
+import { explainMatch, riskRadar } from '@/api/graph'
 import { batchScore, batchOperation } from '@/api/delivery'
 import type { DeliveryStatus } from '@/api/delivery/types'
 import { parseAIResponse } from '@/utils/ai-parse-helper'
+import GraphCanvas from '@/components/graph/GraphCanvas.vue'
 import dayjs from 'dayjs'
 
 const resumeStore = useResumeStore()
@@ -335,7 +293,21 @@ const panelResult = ref<any>(null)
 const activeCandidate = ref<any>(null)
 const actionLoading = ref<string | null>(null)
 
-onMounted(() => {
+const route = useRoute()
+const router = useRouter()
+
+onMounted(async () => {
+  const cid = route.query.candidateId as string
+  if (cid) {
+    await nextTick()
+    const el = document.querySelector(`[data-candidate-id="${cid}"]`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('highlight-row')
+      setTimeout(() => el.classList.remove('highlight-row'), 3000)
+    }
+  }
+
   fetchResumes()
   jobStore.fetchJobs({ page: 1, pageSize: 100, status: 1 })
 })
@@ -383,8 +355,8 @@ const handleSmartSort = async () => {
 // ── 看板列 ──
 const kanbanColumns = computed(() => {
   const cols = [
-    { status: 0, label: '待查看', color: '#F59E0B', items: [] as any[] },
-    { status: 1, label: '已查看', color: '#3B82F6', items: [] as any[] },
+    { status: 0, label: '待查看', color: '#B08040', items: [] as any[] },
+    { status: 1, label: '已查看', color: '#6B7B8D', items: [] as any[] },
     { status: 2, label: '面试中', color: '#8B5CF6', items: [] as any[] },
     { status: 3, label: '实习中', color: '#06B6D4', items: [] as any[] },
     { status: 4, label: '正式入职', color: '#059669', items: [] as any[] },
@@ -412,6 +384,50 @@ const quickChangeStatus = async (item: any, newStatus: number) => {
   }
 }
 
+// ── 拖拽功能 ──
+const draggedItem = ref<any>(null)
+const dragOverColumn = ref<number | null>(null)
+
+const onDragStart = (e: DragEvent, item: any) => {
+  draggedItem.value = item
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(item.deliveryId))
+  }
+}
+
+const onDragEnd = () => {
+  draggedItem.value = null
+  dragOverColumn.value = null
+}
+
+const onDragOver = (_e: DragEvent, _status: number) => {
+  // dragover.prevent is in template
+}
+
+const onDragEnter = (status: number) => {
+  if (draggedItem.value && draggedItem.value.status !== status) {
+    dragOverColumn.value = status
+  }
+}
+
+const onDragLeave = (status: number) => {
+  if (dragOverColumn.value === status) {
+    dragOverColumn.value = null
+  }
+}
+
+const onDrop = async (newStatus: number) => {
+  dragOverColumn.value = null
+  if (!draggedItem.value) return
+  if (draggedItem.value.status === newStatus) {
+    draggedItem.value = null
+    return
+  }
+  await quickChangeStatus(draggedItem.value, newStatus)
+  draggedItem.value = null
+}
+
 const getStatusType = (status: number): 'primary' | 'success' | 'warning' | 'info' | 'danger' | undefined => {
   const types: Array<'primary' | 'success' | 'warning' | 'info' | 'danger' | undefined> = ['info', undefined, 'warning', 'primary', 'success', 'danger']
   return types[status]
@@ -422,7 +438,7 @@ const getStatusText = (status: number) => {
   return texts[status] || '未知'
 }
 
-const scoreColor = (s: number) => s >= 80 ? '#10B981' : s >= 60 ? '#F59E0B' : '#EF4444'
+const scoreColor = (s: number) => s >= 80 ? '#6B8B4E' : s >= 60 ? '#B08040' : '#A05040'
 
 const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm')
 const formatShortDate = (date: string) => date ? dayjs(date).format('MM-DD') : '-'
@@ -457,52 +473,80 @@ const onPanelTabChange = (tab: string | number) => {
   const tabName = String(tab)
   if (tabName !== inlinePanelType.value) {
     inlinePanelType.value = tabName
-    panelResult.value = null
+    if (tabName === 'evidence' && panelResult.value) buildEvidenceGraph()
+    else if (tabName !== 'evidence') panelResult.value = null
   }
 }
 
 const handleInlineAction = (row: any, type: string) => {
   openInlinePanel(row)
   inlinePanelType.value = type
-  if (type === 'analyze') runAnalyze()
-  else if (type === 'score') runScore()
+  if (type === 'analyze') runGraphAnalysis()
+  else if (type === 'evidence' && panelResult.value) buildEvidenceGraph()
   else if (type === 'question') runQuestion()
 }
 
-const runAnalyze = async () => {
+const runGraphAnalysis = async () => {
   if (!activeCandidate.value) return
   const id = activeCandidate.value.deliveryId
   aiLoading.value = id
   panelResult.value = null
   try {
-    const res = await analyzeResume(id)
-    let data = res
-    if (typeof data === 'string') { try { data = JSON.parse(data) } catch {} }
-    panelResult.value = data
-    ElMessage.success('AI分析完成')
+    const candId = activeCandidate.value.candidateId || 0
+    const jobId = activeCandidate.value.jobId || 0
+    const [explainRes, riskRes] = await Promise.all([
+      explainMatch(candId, jobId) as any,
+      riskRadar(candId, jobId) as any
+    ])
+    const explainData = explainRes?.data || explainRes
+    const riskData = riskRes?.data || riskRes
+    // Compute overall match rate from matched/gap counts
+    const matched = explainData?.matchedSkills?.length || 0
+    const gap = explainData?.gapSkills?.length || 0
+    const matchRate = matched + gap > 0 ? Math.round((matched / (matched + gap)) * 100) : 50
+    panelResult.value = {
+      ...explainData,
+      matchRate,
+      overallScore: matchRate,
+      riskResult: riskData,
+      jobTitle: activeCandidate.value.jobTitle
+    }
+    ElMessage.success('图谱分析完成')
   } catch (e: any) {
-    ElMessage.error(e.message || '解析失败')
+    ElMessage.error(e.message || '图谱分析失败')
   } finally {
     aiLoading.value = null
   }
 }
 
-const runScore = async () => {
-  if (!activeCandidate.value) return
-  const id = activeCandidate.value.deliveryId
-  aiLoading.value = id
-  panelResult.value = null
-  try {
-    const res = await scoreResume(id)
-    const parsed = parseAIResponse(res)
-    panelResult.value = parsed || res
-    ElMessage.success('评分完成')
-  } catch (e: any) {
-    ElMessage.error(e.message || '评分失败')
-  } finally {
-    aiLoading.value = null
-  }
+// ── 证据链图谱 ──
+const evidenceNodes = ref<any[]>([])
+const evidenceEdges = ref<any[]>([])
+
+const buildEvidenceGraph = () => {
+  const result = panelResult.value
+  if (!result) return
+  const nodes: any[] = []
+  const edges: any[] = []
+  nodes.push({ id: 'candidate', label: activeCandidate.value?.candidateName || '候选人', type: 'Candidate', category: 'candidate', size: 45 })
+  nodes.push({ id: 'job', label: activeCandidate.value?.jobTitle || '岗位', type: 'Job', category: 'job', size: 45 })
+  edges.push({ id: 'e-cj', source: 'candidate', target: 'job', label: '投递' })
+  ;(result.matchedSkills || []).forEach((m: any, i: number) => {
+    const sid = `m-${i}`
+    nodes.push({ id: sid, label: m.skill || m, type: 'Skill', category: 'matched', size: 32 })
+    edges.push({ id: `c-${sid}`, source: 'candidate', target: sid, label: '掌握' })
+    edges.push({ id: `${sid}-j`, source: sid, target: 'job', label: m.evidence?.graphVerified ? '已验证' : '' })
+  })
+  ;(result.gapSkills || []).forEach((g: any, i: number) => {
+    const sid = `g-${i}`
+    nodes.push({ id: sid, label: g.skill || g, type: 'Skill', category: 'gap', size: 28 })
+    edges.push({ id: `${sid}-j`, source: sid, target: 'job', label: g.isCritical ? '关键' : '待补' })
+  })
+  evidenceNodes.value = nodes
+  evidenceEdges.value = edges
 }
+
+const onEvidenceNodeClick = (nodeId: string) => { /* no-op */ }
 
 const runQuestion = async () => {
   if (!activeCandidate.value) return
@@ -536,6 +580,15 @@ const handlePanelAction = async (action: string) => {
   } finally {
     actionLoading.value = null
   }
+}
+
+const handleDeleteDelivery = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(`确定删除 ${row.candidateName} 的投递记录？`, '确认删除', { type: 'warning' })
+    await batchOperation([row.deliveryId], 5)
+    ElMessage.success('已删除')
+    fetchResumes()
+  } catch { /* cancelled */ }
 }
 </script>
 
@@ -678,6 +731,8 @@ const handlePanelAction = async (action: string) => {
     grid-template-columns: repeat(6, 1fr);
     gap: var(--space-3);
     overflow-x: auto;
+    overflow-y: hidden;
+    max-height: calc(100vh - 220px);
     padding-bottom: var(--space-3);
 
     @media (max-width: 1400px) { grid-template-columns: repeat(3, 1fr); }
@@ -692,6 +747,7 @@ const handlePanelAction = async (action: string) => {
     flex-direction: column;
     min-height: 300px;
     min-width: 200px;
+    overflow: hidden;
   }
 
   .kanban-col-header {
@@ -712,6 +768,7 @@ const handlePanelAction = async (action: string) => {
 
   .kanban-col-body {
     flex: 1;
+    min-height: 0;
     padding: var(--space-2);
     display: flex;
     flex-direction: column;
@@ -771,6 +828,24 @@ const handlePanelAction = async (action: string) => {
       border-top: 1px solid var(--color-border-light);
       padding-top: var(--space-2);
       .el-button { font-size: 11px; padding: 2px 6px; }
+    }
+
+    // 拖拽状态
+    &.is-dragging {
+      opacity: 0.4;
+      transform: scale(0.95);
+    }
+  }
+
+  // 拖拽目标列高亮
+  .kanban-column.drag-over {
+    background: var(--color-primary-bg);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px rgba(var(--color-primary-rgb, 59, 130, 246), 0.2);
+    transition: all var(--duration-fast) var(--ease-out);
+
+    .kanban-col-header {
+      border-top-color: var(--color-primary);
     }
   }
 

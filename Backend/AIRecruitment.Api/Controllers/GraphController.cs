@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AIRecruitment.Api.Services;
+using Newtonsoft.Json;
 
 namespace AIRecruitment.Api.Controllers;
 
@@ -18,11 +19,8 @@ public class GraphController : ControllerBase
     public GraphController(KnowledgeGraphService graph, IAIService ai, DataCollectionService dataCollector,
         EnhancedMatchingService matching, JobDiscoveryService discovery)
     {
-        _graph = graph;
-        _ai = ai;
-        _dataCollector = dataCollector;
-        _matching = matching;
-        _discovery = discovery;
+        _graph = graph; _ai = ai; _dataCollector = dataCollector;
+        _matching = matching; _discovery = discovery;
     }
 
     /// <summary>获取岗位-技能关系图数据</summary>
@@ -440,7 +438,6 @@ public class GraphController : ControllerBase
 
     private static double ExtractJobSkillMatch(string resumeText, string jobTitle)
     {
-        // 基于岗位类型获取关键技能集
         var coreSkills = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var secondarySkills = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -465,17 +462,129 @@ public class GraphController : ControllerBase
 
         if (coreSkills.Count == 0) return 0.5;
 
-        // 核心技能匹配率 (权重70%)
         var coreMatched = coreSkills.Count(s => resumeText.Contains(s, StringComparison.OrdinalIgnoreCase));
         var coreRate = (double)coreMatched / coreSkills.Count;
-
-        // 次要技能匹配率 (权重30%)
         var secMatched = secondarySkills.Count(s => resumeText.Contains(s, StringComparison.OrdinalIgnoreCase));
         var secRate = secondarySkills.Count > 0 ? (double)secMatched / secondarySkills.Count : 0.5;
 
         return coreRate * 0.7 + secRate * 0.3;
     }
+
+    // ═══ 图谱核心操作保留 ═══
+
+    /// <summary>获取全图谱数据（G6 可视化格式）</summary>
+    [HttpGet("full-graph")]
+    public async Task<IActionResult> GetFullGraph([FromQuery] string? centerJob, [FromQuery] int limit = 50)
+    {
+        try
+        {
+            // 从 Neo4j 或数据库获取岗位-技能数据
+            var nodes = new List<G6Node>();
+            var edges = new List<G6Edge>();
+            var addedNodes = new HashSet<string>();
+            var addedEdges = new HashSet<string>();
+            int edgeId = 0;
+
+            // 岗位节点颜色（温暖金色系）
+            var jobColors = new[] { "#F59E0B", "#D97706", "#FBBF24", "#EAB308" };
+            // 技能节点颜色（深紫蓝色系）
+            var skillColors = new[] { "#6C6FF7", "#A78BFA", "#818CF8", "#6366F1" };
+
+            // 从 KnowledgeGraphService 获取数据
+            var graphData = await _graph.GetJobSkillGraphAsync(centerJob, 3);
+
+            int jobIdx = 0, skillIdx = 0;
+            foreach (var node in graphData.Nodes)
+            {
+                if (addedNodes.Contains(node.Id)) continue;
+                addedNodes.Add(node.Id);
+
+                var isJob = node.Label == "Job" || node.Properties.ContainsKey("title");
+                var color = isJob ? jobColors[jobIdx++ % jobColors.Length] : skillColors[skillIdx++ % skillColors.Length];
+                var category = isJob ? "job" : "skill";
+                var displayLabel = isJob
+                    ? node.Properties.GetValueOrDefault("title", node.Id)
+                    : node.Properties.GetValueOrDefault("name", node.Label);
+
+                nodes.Add(new G6Node(
+                    node.Id,
+                    displayLabel.Length > 12 ? displayLabel[..12] : displayLabel,
+                    isJob ? "job" : "skill",
+                    category,
+                    isJob ? 48 : 32,
+                    new Dictionary<string, object>
+                    {
+                        ["fill"] = color,
+                        ["stroke"] = "#1a1a2e",
+                        ["lineWidth"] = 2,
+                    }
+                ));
+            }
+
+            foreach (var edge in graphData.Edges)
+            {
+                var edgeKey = $"{edge.Source}-{edge.Target}-{edge.Label}";
+                if (addedEdges.Contains(edgeKey) || !addedNodes.Contains(edge.Source) || !addedNodes.Contains(edge.Target))
+                    continue;
+                addedEdges.Add(edgeKey);
+
+                edges.Add(new G6Edge(
+                    $"e{edgeId++}",
+                    edge.Source,
+                    edge.Target,
+                    edge.Label,
+                    edge.Label == "REQUIRES" ? "requires" : "related"
+                ));
+            }
+
+            // 如果 Neo4j 无数据，生成演示图谱
+            if (nodes.Count == 0)
+            {
+                var demoNames = new[] { "Python工程师", "前端工程师", "Java工程师", "数据分析师", "DevOps", "AI工程师" };
+                var demoSkills = new[] { "Python", "TypeScript", "React", "Spring Boot", "Docker", "K8s", "TensorFlow",
+                    "SQL", "Redis", "微服务", "机器学习", "CI/CD", "Vue", "Node.js", "PostgreSQL", "Linux" };
+
+                var rng = new Random(42);
+                for (int i = 0; i < demoNames.Length; i++)
+                {
+                    var jobId = $"job_{i}";
+                    nodes.Add(new G6Node(jobId, demoNames[i], "job", "job", 48,
+                        new Dictionary<string, object> { ["fill"] = jobColors[i % jobColors.Length], ["stroke"] = "#1a1a2e", ["lineWidth"] = 2 }));
+                }
+                for (int i = 0; i < demoSkills.Length; i++)
+                {
+                    var skillId = $"skill_{i}";
+                    nodes.Add(new G6Node(skillId, demoSkills[i], "skill", "skill", 32,
+                        new Dictionary<string, object> { ["fill"] = skillColors[i % skillColors.Length], ["stroke"] = "#1a1a2e", ["lineWidth"] = 2 }));
+                }
+                foreach (var jobId in Enumerable.Range(0, demoNames.Length))
+                {
+                    var skillCount = rng.Next(3, 7);
+                    for (int s = 0; s < skillCount; s++)
+                    {
+                        var skillId = rng.Next(demoSkills.Length);
+                        var key = $"job_{jobId}-skill_{skillId}";
+                        if (addedEdges.Contains(key)) continue;
+                        addedEdges.Add(key);
+                        edges.Add(new G6Edge($"e{edgeId++}", $"job_{jobId}", $"skill_{skillId}", "REQUIRES", "requires"));
+                    }
+                }
+            }
+
+            return Ok(new { code = 200, data = new G6GraphData(nodes, edges) });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { code = 200, data = new G6GraphData(new(), new()), warning = ex.Message });
+        }
+    }
+
 }
+
+// ═══ G6 图可视化数据模型 ═══
+public record G6GraphData(List<G6Node> Nodes, List<G6Edge> Edges);
+public record G6Node(string Id, string Label, string Type, string Category, int Size, Dictionary<string, object>? Style);
+public record G6Edge(string Id, string Source, string Target, string Label, string Relationship);
 
 public record EnhancedMatchRequest(string ResumeText, int JobId);
 public record NLQueryRequest(string Question);

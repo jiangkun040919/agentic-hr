@@ -52,7 +52,7 @@ public class SysConfigController : ControllerBase
     public async Task<IActionResult> SaveCommonInterviewers([FromBody] CommonInterviewersRequest request)
     {
         var userRole = User.FindFirst("role")?.Value;
-        if (userRole != "hr")
+        if (userRole != "hr" && userRole != "admin")
         {
             return Forbid();
         }

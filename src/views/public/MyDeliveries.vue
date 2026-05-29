@@ -1,193 +1,169 @@
 <template>
-  <div class="my-deliveries-container">
-    <h2 class="page-title">我的投递记录</h2>
+  <div class="my-deliveries-page">
+    <div class="page-header">
+      <h1 class="page-title">我的投递记录</h1>
+      <p class="page-sub">追踪你的求职进展</p>
+    </div>
 
     <!-- 站内消息通知提示 -->
-    <el-alert
-      type="info"
-      :closable="false"
-      show-icon
-      class="notify-banner"
-    >
-      <template #default>
-        <span>
-          面试通知将通过<strong>站内消息</strong>实时推送，请注意右上角
-          <el-icon style="vertical-align: middle; margin: 0 2px;"><Bell /></el-icon>
-          铃铛图标的消息提醒，有新通知时会显示红色角标。
-        </span>
-      </template>
-    </el-alert>
+    <div class="notify-banner">
+      <span class="nb-icon">🔔</span>
+      <span>面试通知将通过<strong>站内消息</strong>实时推送，请注意右上角铃铛图标的消息提醒。</span>
+    </div>
 
     <!-- AI面试邀请卡片 -->
-    <el-card v-if="aiInterviewInvitations.length > 0" class="ai-invitation-card" shadow="hover">
-      <template #header>
-        <div class="ai-invitation-header">
-          <el-icon color="var(--color-success)" size="20"><VideoCamera /></el-icon>
-          <span class="invitation-title">AI面试邀请</span>
-          <el-badge :value="aiInterviewInvitations.length" type="success" />
-        </div>
-      </template>
-      <div class="ai-invitation-list">
-        <div 
-          v-for="item in aiInterviewInvitations" 
-          :key="item.deliveryId" 
-          class="ai-invitation-item"
-        >
-          <div class="invitation-info">
+    <div v-if="aiInterviewInvitations.length > 0" class="ai-invite-card">
+      <div class="ai-invite-header">
+        <span class="ai-icon">🤖</span>
+        <span class="ai-title">AI面试邀请</span>
+        <span class="ai-badge">{{ aiInterviewInvitations.length }}</span>
+      </div>
+      <div class="ai-invite-list">
+        <div v-for="item in aiInterviewInvitations" :key="item.deliveryId" class="ai-invite-item">
+          <div class="invite-info">
             <h4>{{ item.jobTitle }}</h4>
-            <p class="deadline" v-if="item.aiInterviewDeadline">
-              <el-icon><Clock /></el-icon>
-              请在 {{ formatDeadline(item.aiInterviewDeadline) }} 前完成面试
-            </p>
-            <p class="deadline warning" v-else-if="isDeadlinePassed(item.aiInterviewDeadline)">
-              <el-icon color="var(--color-danger)"><Clock /></el-icon>
-              面试邀请已过期
-            </p>
+            <p v-if="item.aiInterviewDeadline" class="deadline">⏰ 请在 {{ formatDeadline(item.aiInterviewDeadline) }} 前完成面试</p>
+            <p v-else class="deadline expired">❌ 面试邀请已过期</p>
           </div>
-          <div class="invitation-actions">
-            <el-button 
-              type="success" 
-              size="large" 
-              @click="startAIInterview(item)"
-              :disabled="isDeadlinePassed(item.aiInterviewDeadline)"
-            >
-              <el-icon><VideoPlay /></el-icon>
-              参加AI面试
-            </el-button>
+          <VBtn variant="filled" color="mint" size="lg" @click="startAIInterview(item)" :disabled="isDeadlinePassed(item.aiInterviewDeadline)">
+            🎬 参加AI面试
+          </VBtn>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 切换 -->
+    <div class="tab-bar">
+      <button class="tab-btn" :class="{ active: activeTab === 'deliveries' }" @click="activeTab = 'deliveries'">📋 我的投递</button>
+      <button class="tab-btn" :class="{ active: activeTab === 'ai-interviews' }" @click="activeTab = 'ai-interviews'">🤖 AI面试记录</button>
+    </div>
+
+    <!-- 投递列表 - 卡片式 -->
+    <div v-if="activeTab === 'deliveries'" v-loading="loading" class="delivery-list">
+      <div v-for="row in deliveries" :key="row.deliveryId" class="delivery-card" @click="viewDetail(row)">
+        <div class="dc-status-bar" :style="{ background: statusBarColors[row.status] || '#8A9BA8' }" />
+        <div class="dc-body">
+          <div class="dc-header">
+            <h3 class="dc-title">{{ row.jobTitle }}</h3>
+            <span class="dc-status" :class="`st-${['pending','reviewed','interview','intern','hired','rejected'][row.status]}`">
+              {{ ['待查看','已查看','面试中','实习中','正式入职','已淘汰'][row.status] }}
+            </span>
+          </div>
+          <div class="dc-meta">
+            <span>{{ row.candidateName }}</span>
+            <span>{{ row.phone }}</span>
+            <span>{{ formatDate(row.deliverTime) }}</span>
+          </div>
+          <div class="dc-footer">
+            <span v-if="row.allowAIInterview" class="dc-ai-tag">🤖 AI面试已开放</span>
+            <span v-else class="dc-ai-tag dc-ai-tag--off">AI面试未开放</span>
+            <div class="dc-actions">
+              <VBtn variant="ghost" color="gray" size="sm" @click.stop="viewDetail(row)">详情</VBtn>
+              <VBtn variant="ghost" color="coral" size="sm" @click.stop="editDetail(row)">修改</VBtn>
+            </div>
           </div>
         </div>
       </div>
-    </el-card>
+      <VEmpty v-if="!loading && deliveries.length === 0" title="暂无投递记录" description="快去浏览岗位，投递你的第一份简历吧！" emoji="📮" />
+    </div>
 
-    <el-card v-loading="loading">
-      <el-tabs v-model="activeTab">
-        <el-tab-pane label="我的投递" name="deliveries">
-          <el-table :data="deliveries" stripe>
-            <el-table-column prop="jobTitle" label="投递岗位" min-width="120" />
-            <el-table-column prop="candidateName" label="姓名" width="100" />
-            <el-table-column prop="phone" label="手机号" width="120" />
-            <el-table-column prop="deliverTime" label="投递时间" width="160">
-              <template #default="{ row }">
-                {{ formatDate(row.deliverTime) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="allowAIInterview" label="AI面试" width="100">
-              <template #default="{ row }">
-                <el-tag v-if="row.allowAIInterview" type="success" size="small">
-                  <el-icon><VideoCamera /></el-icon> 已开放
-                </el-tag>
-                <el-tag v-else type="info" size="small">未开放</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="updateTime" label="更新时间" width="160">
-              <template #default="{ row }">
-                {{ row.updateTime ? formatDate(row.updateTime) : '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="200">
-              <template #default="{ row }">
-                <el-button size="small" type="primary" @click="viewDetail(row)">查看详情</el-button>
-                <el-button size="small" @click="editDetail(row)" style="margin-left: 8px;">修改信息</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-        
-        <el-tab-pane label="AI面试记录" name="ai-interviews" lazy>
-          <el-empty v-if="aiSessionsLoading" description="加载中..." />
-          <el-empty v-else-if="aiSessions.length === 0" description="暂无AI面试记录" />
-          <div v-else class="ai-history-list">
-            <el-card 
-              v-for="item in aiSessions" 
-              :key="item.sessionId"
-              class="ai-history-card"
-              shadow="hover"
-            >
-              <div class="ai-history-content">
-                <div class="history-info">
-                  <h4>{{ item.jobTitle || 'AI面试' }}</h4>
-                  <p>开始时间：{{ item.startTime ? formatDate(item.startTime) : formatDate(item.createdAt) }}</p>
-                  <p v-if="item.endTime">结束时间：{{ formatDate(item.endTime) }}</p>
-                  <p v-if="item.totalDuration">面试时长：{{ formatDuration(item.totalDuration) }}</p>
-                </div>
-                <div class="history-status">
-                  <el-tag :type="getSessionStatusType(item.status)" size="large">
-                    {{ getSessionStatusText(item.status) }}
-                  </el-tag>
-                  <div v-if="item.totalScore" class="score-display">
-                    <span class="score-label">AI评分</span>
-                    <span class="score-value" :class="getScoreClass(item.totalScore)">{{ item.totalScore }}</span>
-                  </div>
-                </div>
-              </div>
-            </el-card>
+    <!-- AI面试记录 -->
+    <div v-if="activeTab === 'ai-interviews'" class="ai-history-section">
+      <div v-if="aiSessionsLoading" class="loading-text">加载中...</div>
+      <VEmpty v-else-if="aiSessions.length === 0" title="暂无AI面试记录" description="完成AI面试后，记录会显示在这里" emoji="🎙️" />
+      <div v-else class="ai-history-list">
+        <div v-for="item in aiSessions" :key="item.sessionId" class="ai-history-card">
+          <div class="ahc-header">
+            <h4>{{ item.jobTitle || 'AI面试' }}</h4>
+            <VTag :color="sessionStatusColors[item.status] || 'gray'" size="md">
+              {{ ['未开始','进行中','已完成','已中断'][item.status] || '未知' }}
+            </VTag>
           </div>
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
-
-    <el-dialog title="投递详情" v-model="showDetail" width="500px">
-      <div v-if="selectedDelivery" class="detail-content">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="投递岗位">{{ selectedDelivery.jobTitle }}</el-descriptions-item>
-          <el-descriptions-item label="投递时间">{{ formatDate(selectedDelivery.deliverTime) }}</el-descriptions-item>
-          <el-descriptions-item label="姓名">{{ selectedDelivery.candidateName }}</el-descriptions-item>
-          <el-descriptions-item label="手机号">{{ selectedDelivery.phone }}</el-descriptions-item>
-          <el-descriptions-item label="学历">{{ selectedDelivery.education }}</el-descriptions-item>
-          <el-descriptions-item label="工作经验">{{ selectedDelivery.workYears }}年</el-descriptions-item>
-          <el-descriptions-item label="邮箱">{{ selectedDelivery.email }}</el-descriptions-item>
-          <el-descriptions-item label="当前状态">
-            <el-tag :type="getStatusType(selectedDelivery.status)">{{ getStatusText(selectedDelivery.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="AI面试">
-            <el-tag v-if="selectedDelivery.allowAIInterview" type="success">
-              <el-icon><VideoCamera /></el-icon> 已开放
-            </el-tag>
-            <el-tag v-else type="info">未开放</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间" :span="2">
-            {{ selectedDelivery.updateTime ? formatDate(selectedDelivery.updateTime) : '-' }}
-          </el-descriptions-item>
-        </el-descriptions>
+          <div class="ahc-body">
+            <div class="ahc-info">
+              <p>📅 {{ item.startTime ? formatDate(item.startTime) : formatDate(item.createdAt) }}</p>
+              <p v-if="item.totalDuration">⏱️ {{ formatDuration(item.totalDuration) }}</p>
+            </div>
+            <div v-if="item.totalScore" class="ahc-score">
+              <div class="score-ring" :style="{ '--pct': item.totalScore }">
+                <span class="score-num" :class="getScoreClass(item.totalScore)">{{ item.totalScore }}</span>
+              </div>
+              <span class="score-label">AI评分</span>
+            </div>
+          </div>
+        </div>
       </div>
-    </el-dialog>
+    </div>
 
-    <el-dialog title="修改投递信息" v-model="showEdit" width="500px">
-      <div v-if="editingDelivery" class="edit-content">
-        <el-form :model="editForm" label-width="100px">
-          <el-form-item label="姓名" required>
-            <el-input v-model="editForm.candidateName" placeholder="请输入姓名" />
-          </el-form-item>
-          <el-form-item label="手机号" required>
-            <el-input v-model="editForm.phone" placeholder="请输入手机号" />
-          </el-form-item>
-          <el-form-item label="邮箱">
-            <el-input v-model="editForm.email" placeholder="请输入邮箱" />
-          </el-form-item>
-          <el-form-item label="学历" required>
-            <el-select v-model="editForm.education" placeholder="请选择学历">
-              <el-option label="高中" value="高中" />
-              <el-option label="大专" value="大专" />
-              <el-option label="本科" value="本科" />
-              <el-option label="硕士" value="硕士" />
-              <el-option label="博士" value="博士" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="工作经验(年)" required>
-            <el-input type="number" v-model="editForm.workYears" placeholder="请输入工作年限" />
-          </el-form-item>
-        </el-form>
+    <!-- 详情弹窗 -->
+    <VDialog v-model="showDetail" title="投递详情" max-width="520px">
+      <div v-if="selectedDelivery" class="detail-content">
+        <div class="detail-grid">
+          <div class="dg-item"><span class="dg-label">投递岗位</span><span class="dg-value">{{ selectedDelivery.jobTitle }}</span></div>
+          <div class="dg-item"><span class="dg-label">投递时间</span><span class="dg-value">{{ formatDate(selectedDelivery.deliverTime) }}</span></div>
+          <div class="dg-item"><span class="dg-label">姓名</span><span class="dg-value">{{ selectedDelivery.candidateName }}</span></div>
+          <div class="dg-item"><span class="dg-label">手机号</span><span class="dg-value">{{ selectedDelivery.phone }}</span></div>
+          <div class="dg-item"><span class="dg-label">学历</span><span class="dg-value">{{ selectedDelivery.education }}</span></div>
+          <div class="dg-item"><span class="dg-label">工作经验</span><span class="dg-value">{{ selectedDelivery.workYears }}年</span></div>
+          <div class="dg-item"><span class="dg-label">邮箱</span><span class="dg-value">{{ selectedDelivery.email || '-' }}</span></div>
+          <div class="dg-item"><span class="dg-label">当前状态</span><span class="dg-value"><VTag :color="statusBarColors[selectedDelivery.status] === '#C4A96A' ? 'coral' : 'mint'" size="sm">{{ ['待查看','已查看','面试中','实习中','正式入职','已淘汰'][selectedDelivery.status] }}</VTag></span></div>
+        </div>
+
+        <div style="margin-top:16px">
+          <VBtn variant="filled" color="purple" size="sm" @click="loadCompetitiveness" :loading="compLoading">查看竞争力分析</VBtn>
+        </div>
+        <div v-if="compResult" class="comp-panel">
+          <div class="comp-stats">
+            <span>匹配 <b>{{ compResult.matchRate }}%</b></span>
+            <span>竞争者 <b>{{ compResult.totalCompetitors }}</b></span>
+            <span>排名 <b>#{{ compResult.estimatedRank }}</b></span>
+            <VTag color="mint" size="sm">前{{ compResult.percentile }}%</VTag>
+          </div>
+          <div v-if="compResult.strengths?.length" class="comp-tags">
+            <span class="comp-label">优势</span>
+            <VTag v-for="s in compResult.strengths" :key="s" color="mint" size="sm">{{ s }}</VTag>
+          </div>
+          <div v-if="compResult.weaknesses?.length" class="comp-tags">
+            <span class="comp-label">待提升</span>
+            <VTag v-for="w in compResult.weaknesses.slice(0,5)" :key="w" color="sunny" size="sm">{{ w }}</VTag>
+          </div>
+        </div>
+      </div>
+    </VDialog>
+
+    <!-- 编辑弹窗 -->
+    <VDialog v-model="showEdit" title="修改投递信息" max-width="480px">
+      <div v-if="editingDelivery" class="edit-form">
+        <div class="form-group">
+          <label class="form-label">姓名</label>
+          <input v-model="editForm.candidateName" class="form-input" placeholder="请输入姓名" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">手机号</label>
+          <input v-model="editForm.phone" class="form-input" placeholder="请输入手机号" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">邮箱</label>
+          <input v-model="editForm.email" class="form-input" placeholder="请输入邮箱" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">学历</label>
+          <select v-model="editForm.education" class="form-select">
+            <option value="高中">高中</option><option value="大专">大专</option>
+            <option value="本科">本科</option><option value="硕士">硕士</option>
+            <option value="博士">博士</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">工作经验(年)</label>
+          <input v-model.number="editForm.workYears" type="number" class="form-input" placeholder="工作年限" />
+        </div>
       </div>
       <template #footer>
-        <el-button @click="showEdit = false">取消</el-button>
-        <el-button type="primary" @click="submitEdit">保存修改</el-button>
+        <VBtn variant="ghost" color="gray" @click="showEdit = false">取消</VBtn>
+        <VBtn variant="filled" color="coral" @click="submitEdit">保存修改</VBtn>
       </template>
-    </el-dialog>
+    </VDialog>
   </div>
 </template>
 
@@ -197,334 +173,224 @@ import { useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resume'
 import { updateDeliveryInfo } from '@/api/delivery'
 import { getMyAISessions } from '@/api/interview-ai'
-import { VideoCamera, Clock, VideoPlay, Bell } from '@element-plus/icons-vue'
+import { getCompetitiveness } from '@/api/graph'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
+import VBtn from '@/components/ui/VBtn.vue'
+import VTag from '@/components/ui/VTag.vue'
+import VEmpty from '@/components/ui/VEmpty.vue'
+import VDialog from '@/components/ui/VDialog.vue'
 
 const router = useRouter()
 const resumeStore = useResumeStore()
 const loading = computed(() => resumeStore.loading)
 const deliveries = computed(() => resumeStore.deliveries)
 
-// 已完成AI面试的 deliveryId 集合（从 localStorage 读取，避免完成后继续显示邀请）
+const statusBarColors: Record<number, string> = { 0: '#C4A96A', 1: '#8A9BA8', 2: '#8B9A6E', 3: '#7A8B5E', 4: '#7A8B5E', 5: '#C4A96A' }
+const sessionStatusColors: Record<number, string> = { 0: 'gray', 1: 'sunny', 2: 'mint', 3: 'coral' }
+
 const getCompletedAIDeliveryIds = (): Set<number> => {
-  try {
-    const raw = localStorage.getItem('completedAIInterviewDeliveries')
-    return new Set(raw ? JSON.parse(raw) : [])
-  } catch {
-    return new Set()
-  }
+  try { const raw = localStorage.getItem('completedAIInterviewDeliveries'); return new Set(raw ? JSON.parse(raw) : []) }
+  catch { return new Set() }
 }
 const completedAIDeliveryIds = ref<Set<number>>(getCompletedAIDeliveryIds())
 
-// AI面试邀请列表（投递中已开放AI面试且未完成的记录）
-const aiInterviewInvitations = computed(() => {
-  return deliveries.value.filter(d => d.allowAIInterview && !completedAIDeliveryIds.value.has(d.deliveryId))
-})
+const aiInterviewInvitations = computed(() =>
+  deliveries.value.filter(d => d.allowAIInterview && !completedAIDeliveryIds.value.has(d.deliveryId))
+)
 
 const activeTab = ref('deliveries')
-
 const showDetail = ref(false)
 const selectedDelivery = ref<any>(null)
+const compLoading = ref(false)
+const compResult = ref<any>(null)
+
+const loadCompetitiveness = async () => {
+  if (!selectedDelivery.value || compLoading.value) return
+  compLoading.value = true
+  try { const res = await getCompetitiveness(selectedDelivery.value.deliveryId) as any; compResult.value = res.data || res }
+  catch { ElMessage.warning('分析暂不可用') }
+  finally { compLoading.value = false }
+}
 
 const showEdit = ref(false)
 const editingDelivery = ref<any>(null)
-const editForm = reactive({
-  candidateName: '',
-  phone: '',
-  email: '',
-  education: '',
-  workYears: 0
-})
+const editForm = reactive({ candidateName: '', phone: '', email: '', education: '', workYears: 0 })
 
-onMounted(() => {
-  resumeStore.fetchMyDeliveries()
-})
+onMounted(() => { resumeStore.fetchMyDeliveries() })
 
-// AI面试记录
 const aiSessions = ref<any[]>([])
 const aiSessionsLoading = ref(false)
-
 const fetchAISessions = async () => {
   aiSessionsLoading.value = true
-  try {
-    const res = await getMyAISessions()
-    if (res.data?.code === 200) {
-      aiSessions.value = res.data.data || []
-    }
-  } catch {
-    aiSessions.value = []
-  } finally {
-    aiSessionsLoading.value = false
-  }
+  try { const res = await getMyAISessions(); if (res.data?.code === 200) aiSessions.value = res.data.data || [] }
+  catch { aiSessions.value = [] }
+  finally { aiSessionsLoading.value = false }
 }
 
-// 切换到AI面试记录tab时加载数据
-watch(activeTab, (val) => {
-  if (val === 'ai-interviews' && aiSessions.value.length === 0) {
-    fetchAISessions()
-  }
-})
+watch(activeTab, (val) => { if (val === 'ai-interviews' && aiSessions.value.length === 0) fetchAISessions() })
 
 const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm')
+const formatDeadline = (date: string | null | undefined) => date ? dayjs(date).format('YYYY-MM-DD HH:mm') : ''
+const isDeadlinePassed = (deadline: string | null | undefined) => deadline ? new Date() > new Date(deadline) : false
+const formatDuration = (seconds: number) => { const min = Math.floor(seconds / 60); const sec = seconds % 60; return min > 0 ? `${min}分${sec}秒` : `${sec}秒` }
+const getScoreClass = (score: number) => score >= 80 ? 'score-high' : score >= 60 ? 'score-medium' : 'score-low'
 
-const formatDeadline = (date: string | null | undefined) => {
-  if (!date) return ''
-  return dayjs(date).format('YYYY-MM-DD HH:mm')
-}
-
-const isDeadlinePassed = (deadline: string | null | undefined) => {
-  if (!deadline) return false
-  return new Date() > new Date(deadline)
-}
-
-const getSessionStatusType = (status: number): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
-  const map: Record<number, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = { 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' }
-  return map[status] || 'info'
-}
-
-const getSessionStatusText = (status: number) => {
-  const map: Record<number, string> = { 0: '未开始', 1: '进行中', 2: '已完成', 3: '已中断' }
-  return map[status] || '未知'
-}
-
-const formatDuration = (seconds: number) => {
-  const min = Math.floor(seconds / 60)
-  const sec = seconds % 60
-  return min > 0 ? `${min}分${sec}秒` : `${sec}秒`
-}
-
-const getScoreClass = (score: number) => {
-  if (score >= 80) return 'score-high'
-  if (score >= 60) return 'score-medium'
-  return 'score-low'
-}
-
-const getStatusType = (status: number): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
-  const types: Record<number, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
-    0: 'info',
-    1: 'info',
-    2: 'warning',
-    3: 'primary',
-    4: 'success',
-    5: 'danger'
-  }
-  return types[status] || 'info'
-}
-
-const getStatusText = (status: number) => {
-  const texts = ['待查看', '已查看', '面试中', '实习中', '正式入职', '已淘汰']
-  return texts[status] || '未知'
-}
-
-const viewDetail = (row: any) => {
-  selectedDelivery.value = row
-  showDetail.value = true
-}
-
+const viewDetail = (row: any) => { selectedDelivery.value = row; showDetail.value = true; compResult.value = null }
 const editDetail = (row: any) => {
   editingDelivery.value = row
-  editForm.candidateName = row.candidateName || ''
-  editForm.phone = row.phone || ''
-  editForm.email = row.email || ''
-  editForm.education = row.education || ''
-  editForm.workYears = row.workYears || 0
+  Object.assign(editForm, { candidateName: row.candidateName || '', phone: row.phone || '', email: row.email || '', education: row.education || '', workYears: row.workYears || 0 })
   showEdit.value = true
 }
 
 const submitEdit = async () => {
   try {
-    await updateDeliveryInfo(editingDelivery.value.deliveryId, {
-      jobId: editingDelivery.value.jobId,
-      candidateName: editForm.candidateName,
-      phone: editForm.phone,
-      email: editForm.email,
-      education: editForm.education,
-      workYears: editForm.workYears,
-      resumeUrl: ''
-    })
-    
-    await resumeStore.fetchMyDeliveries()
-    showEdit.value = false
-    ElMessage.success('信息更新成功')
-  } catch (error) {
-    ElMessage.error('更新失败，请稍后重试')
-  }
+    await updateDeliveryInfo(editingDelivery.value.deliveryId, { ...editForm, jobId: editingDelivery.value.jobId, resumeUrl: '' })
+    await resumeStore.fetchMyDeliveries(); showEdit.value = false; ElMessage.success('信息更新成功')
+  } catch { ElMessage.error('更新失败') }
 }
 
-// 开始AI面试
 const startAIInterview = (delivery: any) => {
   const userId = localStorage.getItem('userId') || localStorage.getItem('candidateId') || ''
-  if (!userId) {
-    ElMessage.warning('无法获取用户信息，请重新登录')
-    router.push('/login')
-    return
-  }
-  if (!delivery.jobId || !delivery.deliveryId) {
-    ElMessage.warning('投递信息不完整，请联系HR')
-    return
-  }
-  // 记录即将参加（进入面试即视为"已处理"，完成后自动隐藏邀请）
-  const ids = getCompletedAIDeliveryIds()
-  ids.add(delivery.deliveryId)
+  if (!userId) { ElMessage.warning('请重新登录'); router.push('/login'); return }
+  const ids = getCompletedAIDeliveryIds(); ids.add(delivery.deliveryId)
   localStorage.setItem('completedAIInterviewDeliveries', JSON.stringify([...ids]))
   completedAIDeliveryIds.value = ids
-
-  router.push({
-    name: 'AIInterview',
-    params: {
-      jobId: String(delivery.jobId),
-      deliveryId: String(delivery.deliveryId),
-      candidateId: String(userId)
-    }
-  })
+  router.push({ name: 'AIInterview', params: { jobId: String(delivery.jobId), deliveryId: String(delivery.deliveryId), candidateId: String(userId) } })
 }
 </script>
 
 <style scoped lang="scss">
-.my-deliveries-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
+.my-deliveries-page { max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+.page-header { margin-bottom: 24px; }
+.page-title { font-size: 28px; font-weight: 800; color: var(--color-text); margin: 0 0 4px; }
+.page-sub { font-size: 14px; color: var(--color-text-muted); margin: 0; }
 
 .notify-banner {
-  margin-bottom: 16px;
-  border-radius: 8px;
+  display: flex; align-items: center; gap: 10px; padding: 14px 20px;
+  background: rgba(138,155,168,0.06); border: 1px solid rgba(138,155,168,0.15);
+  border-radius: 14px; margin-bottom: 20px; font-size: 13px; color: var(--color-text-secondary);
+  strong { color: var(--color-primary); }
+}
+.nb-icon { font-size: 18px; }
+
+// AI面试邀请
+.ai-invite-card {
+  background: var(--color-surface); border: 2px solid transparent;
+  border-radius: var(--radius-xl); margin-bottom: 20px; overflow: hidden;
+  background-image: linear-gradient(var(--color-surface), var(--color-surface)), var(--gradient-mint);
+  background-origin: border-box; background-clip: padding-box, border-box;
+}
+.ai-invite-header {
+  display: flex; align-items: center; gap: 10px; padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(122,139,94,0.08), rgba(139,154,110,0.04));
+}
+.ai-icon { font-size: 22px; }
+.ai-title { font-size: 17px; font-weight: 700; flex: 1; }
+.ai-badge {
+  width: 24px; height: 24px; border-radius: 50%; background: var(--gradient-mint);
+  color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.ai-invite-list { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.ai-invite-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px; background: var(--color-bg); border-radius: 14px;
+}
+.invite-info {
+  h4 { margin: 0 0 6px; font-size: 16px; }
+  .deadline { margin: 0; font-size: 13px; color: var(--color-text-secondary); &.expired { color: var(--color-danger); } }
 }
 
-.page-title {
-  margin-bottom: 20px;
-  color: var(--color-primary);
+// Tab 栏
+.tab-bar {
+  display: flex; gap: 4px; background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-full); padding: 4px; margin-bottom: 20px; width: fit-content;
+}
+.tab-btn {
+  padding: 8px 20px; border-radius: var(--radius-full); border: none;
+  background: transparent; cursor: pointer; font-size: 14px; font-weight: 500;
+  color: var(--color-text-secondary); font-family: var(--font-sans);
+  transition: all 0.2s var(--ease-bounce);
+  &.active { background: var(--gradient-primary); color: #fff; font-weight: 600; box-shadow: 0 2px 8px rgba(196,169,106,0.2); }
+  &:hover:not(.active) { background: var(--color-primary-bg); }
 }
 
-// AI面试邀请卡片样式
-.ai-invitation-card {
-  margin-bottom: 20px;
-  border: 2px solid var(--color-success);
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, var(--color-surface) 100%);
-  
-  :deep(.el-card__header) {
-    background: linear-gradient(135deg, var(--color-success) 0%, #34D399 100%);
-    color: #fff;
-    padding: 12px 20px;
-  }
-  
-  .ai-invitation-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    
-    .invitation-title {
-      font-size: 16px;
-      font-weight: 600;
-      flex: 1;
-    }
-  }
-  
-  .ai-invitation-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .ai-invitation-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px;
-    background: var(--color-surface);
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-    
-    .invitation-info {
-      flex: 1;
-      
-      h4 {
-        margin: 0 0 8px;
-        color: var(--color-text);
-        font-size: 16px;
-      }
-      
-      .deadline {
-        margin: 4px 0 0;
-        font-size: 14px;
-        color: var(--color-text-secondary);
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        
-        &.warning {
-          color: var(--color-danger);
-        }
-      }
-    }
-    
-    .invitation-actions {
-      .el-button {
-        padding: 12px 24px;
-        font-size: 15px;
-        
-        .el-icon {
-          margin-right: 6px;
-        }
-      }
-    }
-  }
+// 投递卡片列表
+.delivery-list { display: flex; flex-direction: column; gap: 12px; }
+
+.delivery-card {
+  display: flex; background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); overflow: hidden; cursor: pointer;
+  transition: all 0.2s var(--ease-bounce);
+  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--color-border-glow); }
 }
+.dc-status-bar { width: 4px; flex-shrink: 0; }
+.dc-body { flex: 1; padding: 16px 20px; }
+.dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.dc-title { font-size: 16px; font-weight: 700; margin: 0; }
+.dc-status {
+  font-size: 12px; font-weight: 600; padding: 3px 12px; border-radius: var(--radius-full);
+  &.st-pending { background: rgba(196,169,106,0.1); color: #C4A96A; }
+  &.st-reviewed { background: rgba(138,155,168,0.1); color: #8A9BA8; }
+  &.st-interview { background: rgba(139,154,110,0.1); color: #8B9A6E; }
+  &.st-intern { background: rgba(122,139,94,0.1); color: #7A8B5E; }
+  &.st-hired { background: rgba(122,139,94,0.1); color: #7A8B5E; }
+  &.st-rejected { background: rgba(196,169,106,0.1); color: #C4A96A; }
+}
+.dc-meta { display: flex; gap: 16px; font-size: 13px; color: var(--color-text-muted); margin-bottom: 10px; }
+.dc-footer { display: flex; justify-content: space-between; align-items: center; }
+.dc-ai-tag { font-size: 12px; color: var(--color-accent); font-weight: 500; &--off { color: var(--color-text-muted); } }
+.dc-actions { display: flex; gap: 6px; }
 
-// AI面试记录样式
-.ai-history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  
-  .ai-history-card {
-    .ai-history-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      
-      .history-info {
-        h4 {
-          margin: 0 0 8px;
-          color: var(--color-text);
-        }
-        
-        p {
-          margin: 4px 0;
-          font-size: 14px;
-          color: var(--color-text-secondary);
-        }
-      }
+// AI面试记录
+.ai-history-section { min-height: 200px; }
+.loading-text { text-align: center; color: var(--color-text-muted); padding: 40px; }
+.ai-history-list { display: flex; flex-direction: column; gap: 12px; }
+.ai-history-card {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); padding: 20px;
+  transition: all 0.2s var(--ease-bounce);
+  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+}
+.ahc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; h4 { margin: 0; font-size: 16px; } }
+.ahc-body { display: flex; justify-content: space-between; align-items: center; }
+.ahc-info { p { margin: 4px 0; font-size: 13px; color: var(--color-text-secondary); } }
+.ahc-score { text-align: center; }
+.score-ring {
+  width: 56px; height: 56px; border-radius: 50%; position: relative;
+  background: conic-gradient(var(--color-primary) calc(var(--pct) * 1%), var(--color-bg-alt) 0);
+  display: flex; align-items: center; justify-content: center;
+  &::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: var(--color-surface); }
+}
+.score-num { font-size: 18px; font-weight: 800; position: relative; z-index: 1; &.score-high { color: #7A8B5E; } &.score-medium { color: #C4A96A; } &.score-low { color: #C4A96A; } }
+.score-label { font-size: 11px; color: var(--color-text-muted); display: block; margin-top: 4px; }
 
-      .history-status {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 8px;
-      }
+// 详情/编辑
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dg-item { display: flex; flex-direction: column; gap: 4px; }
+.dg-label { font-size: 12px; color: var(--color-text-muted); }
+.dg-value { font-size: 14px; color: var(--color-text); font-weight: 500; }
 
-      .score-display {
-        display: flex;
-        align-items: center;
-        gap: 6px;
+.comp-panel { margin-top: 16px; padding: 16px; background: var(--color-bg); border-radius: 14px; }
+.comp-stats { display: flex; gap: 16px; font-size: 13px; align-items: center; flex-wrap: wrap; b { color: var(--color-primary); } }
+.comp-tags { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.comp-label { font-size: 12px; color: var(--color-text-muted); margin-right: 4px; }
 
-        .score-label {
-          font-size: 13px;
-          color: var(--color-text-secondary);
-        }
-
-        .score-value {
-          font-size: 24px;
-          font-weight: 700;
-
-          &.score-high { color: var(--color-success); }
-          &.score-medium { color: #E6A23C; }
-          &.score-low { color: var(--color-danger); }
-        }
-      }
-    }
-  }
+.edit-form { display: flex; flex-direction: column; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
+.form-input {
+  height: 40px; padding: 0 14px; border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md); background: var(--color-bg);
+  font-size: 14px; color: var(--color-text); font-family: var(--font-sans);
+  outline: none; transition: border-color 0.2s;
+  &:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(196,169,106,0.1); }
+}
+.form-select {
+  height: 40px; padding: 0 14px; border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md); background: var(--color-bg);
+  font-size: 14px; color: var(--color-text); font-family: var(--font-sans);
+  outline: none; cursor: pointer;
 }
 </style>

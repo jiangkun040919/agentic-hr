@@ -78,7 +78,7 @@
 
         <!-- 生成结果 - 3个版本 -->
         <div v-if="aiResult" style="margin-top:16px">
-          <el-alert :title="`${aiResult.title} · ${aiResult.dept} · ${aiResult.location} · ${aiResult.salaryMin}-${aiResult.salaryMax}K`" type="success" :closable="false" style="margin-bottom:12px" />
+          <el-alert :title="`${aiResult.title} · ${aiResult.dept} · ${aiResult.location} · ${formatSalary(aiResult.salaryMin)}-${formatSalary(aiResult.salaryMax)}`" type="success" :closable="false" style="margin-bottom:12px" />
           <el-tabs v-model="selectedVersion">
             <el-tab-pane v-for="(v, i) in aiResult.versions" :key="i" :label="v.version" :name="i">
               <div class="version-card">
@@ -116,6 +116,7 @@ import { useJobStore } from '@/stores/job'
 import { ElMessage, FormInstance, FormRules } from 'element-plus'
 import { MagicStick } from '@element-plus/icons-vue'
 import { generateJD } from '@/api/job'
+import { formatSalary } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()

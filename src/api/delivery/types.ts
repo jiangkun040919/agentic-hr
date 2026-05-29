@@ -40,6 +40,7 @@ export interface Delivery {
   education?: string
   workYears?: number
   resumeUrl?: string
+  resumeText?: string
   status: DeliveryStatus
   hrId: number
   deliverTime: string

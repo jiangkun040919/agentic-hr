@@ -1,6 +1,6 @@
 <template>
   <div class="public-layout">
-    <!-- ═══ 顶栏 (玻璃拟态) ═══ -->
+    <!-- 顶栏 -->
     <header class="public-header glass-panel">
       <div class="header-container">
         <div class="logo" @click="$router.push('/')">
@@ -9,22 +9,27 @@
           </div>
           <span class="logo-text gradient-text">AI智能招聘</span>
         </div>
+
         <nav class="header-menu">
-          <router-link to="/jobs" class="menu-link" :class="{ active: $route.path === '/jobs' }">岗位列表</router-link>
-          <router-link v-if="isLoggedIn && isCandidate" to="/my/deliveries" class="menu-link" :class="{ active: $route.path === '/my/deliveries' }">我的投递</router-link>
+          <router-link to="/jobs" class="menu-pill" :class="{ active: $route.path === '/jobs' }">
+            <el-icon><Briefcase /></el-icon> 岗位列表
+          </router-link>
+          <router-link v-if="isLoggedIn && isCandidate" to="/my/deliveries" class="menu-pill" :class="{ active: $route.path === '/my/deliveries' }">
+            <el-icon><Document /></el-icon> 我的投递
+          </router-link>
         </nav>
+
         <div class="header-actions">
-          <!-- 主题切换 -->
           <button class="theme-toggle-btn" @click="toggleTheme()" :title="isDark() ? '切换亮色' : '切换暗色'">
             <el-icon :size="16"><Sunny v-if="isDark()" /><Moon v-else /></el-icon>
           </button>
-          <!-- 移动端菜单按钮 -->
           <el-button class="mobile-menu-btn" :icon="mobileMenuOpen ? Close : Menu" text @click="mobileMenuOpen = !mobileMenuOpen" />
+
           <template v-if="isLoggedIn">
-            <el-popover placement="bottom" :width="380" trigger="click">
+            <el-popover placement="bottom" :width="380" trigger="click" @show="notificationStore.fetchNotifications()">
               <template #reference>
                 <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge">
-                  <el-button :icon="Bell" circle text class="header-icon-btn" />
+                  <button class="icon-btn"><el-icon :size="18"><Bell /></el-icon></button>
                 </el-badge>
               </template>
               <div class="notify-pop">
@@ -51,10 +56,8 @@
                       <div class="notify-time">{{ formatTime(item.createdAt) }}</div>
                     </div>
                     <div class="notify-actions">
-                      <el-button v-if="!item.isRead" type="primary" link size="small"
-                        @click.stop="notificationStore.markAsRead(item.notificationId)">已读</el-button>
-                      <el-button type="danger" link size="small"
-                        @click.stop="notificationStore.removeNotification(item.notificationId)">删除</el-button>
+                      <el-button v-if="!item.isRead" type="primary" link size="small" @click.stop="notificationStore.markAsRead(item.notificationId)">已读</el-button>
+                      <el-button type="danger" link size="small" @click.stop="notificationStore.removeNotification(item.notificationId)">删除</el-button>
                     </div>
                   </div>
                   <el-empty v-if="!notificationStore.loading && notificationStore.notifications.length === 0" description="暂无消息" :image-size="64" />
@@ -64,9 +67,9 @@
 
             <el-dropdown @command="handleCommand" trigger="click">
               <div class="user-info">
-                <el-avatar :size="28" class="user-avatar-sm">
+                <div class="user-avatar-gradient">
                   {{ userInfo?.realName?.charAt(0) || 'U' }}
-                </el-avatar>
+                </div>
                 <span class="user-name-text">{{ userInfo?.realName || userInfo?.username }}</span>
                 <el-icon class="user-arrow"><ArrowDown /></el-icon>
               </div>
@@ -78,15 +81,16 @@
               </template>
             </el-dropdown>
           </template>
+
           <template v-else>
-            <el-button type="primary" size="small" class="btn-gradient" @click="$router.push('/login')">登录</el-button>
-            <el-button size="small" class="btn-outline" @click="$router.push('/register')">注册</el-button>
+            <button class="btn-ghost" @click="$router.push('/login')">登录</button>
+            <button class="btn-gradient" @click="$router.push('/register')">注册</button>
           </template>
         </div>
       </div>
     </header>
 
-    <!-- ═══ 移动端抽屉 (玻璃面板) ═══ -->
+    <!-- 移动端抽屉 -->
     <Transition name="drawer-slide">
       <div v-if="mobileMenuOpen" class="mobile-drawer-overlay" @click.self="mobileMenuOpen = false">
         <div class="mobile-drawer glass-panel">
@@ -158,239 +162,152 @@ onMounted(() => {
 const formatTime = (date: string) => dayjs(date).fromNow()
 
 const getTypeColor = (type: string) => {
-  const colors: Record<string, string> = {
-    interview: 'var(--color-accent)',
-    delivery: 'var(--color-primary)',
-    ai: '#A855F7',
-    system: 'var(--color-text-muted)'
-  }
+  const colors: Record<string, string> = { interview: '#8B9A6E', delivery: 'var(--color-primary)', ai: '#7A8B5E', system: 'var(--color-text-muted)' }
   return colors[type] || 'var(--color-text-muted)'
 }
 
 const getTypeBg = (type: string) => {
-  const bgs: Record<string, string> = {
-    interview: 'var(--color-accent-bg)',
-    delivery: 'var(--color-primary-bg)',
-    ai: 'rgba(168, 85, 247, 0.08)',
-    system: 'var(--color-bg)',
-  }
+  const bgs: Record<string, string> = { interview: 'rgba(139,154,110,0.08)', delivery: 'rgba(196,169,106,0.08)', ai: 'rgba(122,139,94,0.08)', system: 'var(--color-bg)' }
   return bgs[type] || 'var(--color-bg)'
 }
 
 const handleNotificationClick = (item: any) => {
   if (!item.isRead) notificationStore.markAsRead(item.notificationId)
-  if (item.relatedType === 'interview' || item.relatedType === 'delivery') {
-    router.push('/my/deliveries')
-  }
+  if (item.relatedType === 'interview' || item.relatedType === 'delivery') router.push('/my/deliveries')
 }
 
 const handleCommand = (command: string) => {
-  if (command === 'logout') {
-    userStore.logout()
-  } else if (command === 'profile') {
-    router.push(userStore.isHR ? '/admin/profile' : '/profile')
-  }
+  if (command === 'logout') userStore.logout()
+  else if (command === 'profile') router.push(userStore.isHR ? '/admin/profile' : '/profile')
 }
 </script>
 
 <style scoped lang="scss">
-.public-layout {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg);
-}
+.public-layout { min-height: 100vh; display: flex; flex-direction: column; background: var(--color-bg); }
 
-// ====== 顶栏 (玻璃拟态) ======
+// ====== 顶栏 ======
 .public-header {
-  padding: 0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  border-radius: 0;
-  border-bottom: 1px solid var(--color-border);
-
+  padding: 0; position: sticky; top: 0; z-index: 100;
+  border-radius: 0; border-bottom: 1px solid var(--color-border);
   .header-container {
-    max-width: var(--content-max-width);
-    margin: 0 auto;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    padding: 0 var(--space-5);
+    max-width: var(--content-max-width); margin: 0 auto;
+    height: var(--header-height);
+    display: flex; align-items: center; padding: 0 var(--space-5);
   }
 }
 
-// Logo
 .logo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  margin-right: var(--space-8);
-
+  display: flex; align-items: center; gap: 10px; cursor: pointer; margin-right: var(--space-8);
   .logo-mark {
-    width: 32px; height: 32px;
-    border-radius: var(--radius-md);
+    width: 36px; height: 36px; border-radius: 12px;
     background: var(--gradient-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+    display: flex; align-items: center; justify-content: center; color: #fff;
+    box-shadow: 0 2px 12px rgba(196,169,106,0.25);
+    transition: transform 0.2s var(--ease-bounce);
+    &:hover { transform: scale(1.05) rotate(-3deg); }
   }
-
-  .logo-text {
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
-  }
+  .logo-text { font-size: 18px; font-weight: 800; }
 }
 
-// 导航
-.header-menu {
-  flex: 1;
-  display: flex;
-  gap: var(--space-1);
-}
+// 导航 pill
+.header-menu { flex: 1; display: flex; gap: 6px; }
 
-.menu-link {
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
+.menu-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: var(--radius-full);
+  font-size: 14px; font-weight: 500;
   color: var(--color-text-secondary);
-  height: 56px;
-  line-height: 56px;
-  padding: 0 var(--space-4);
   text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: all var(--duration-fast) var(--ease-out);
-  position: relative;
+  transition: all 0.2s var(--ease-bounce);
 
-  &:hover {
-    color: var(--color-primary-hover);
-    text-decoration: none;
-  }
-
+  &:hover { background: var(--color-primary-bg); color: var(--color-primary); text-decoration: none; }
   &.active {
-    color: var(--color-primary);
-    font-weight: var(--weight-semibold);
-    border-bottom-color: var(--color-primary);
-
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: -2px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 60%;
-      height: 2px;
-      background: var(--gradient-primary);
-      box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
-    }
+    background: linear-gradient(135deg, rgba(196,169,106,0.14), rgba(139,154,110,0.08));
+    color: var(--color-primary); font-weight: 600;
+    box-shadow: 0 0 0 1px rgba(196,169,106,0.15);
   }
 }
 
 // 右侧操作
 .header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  display: flex; align-items: center; gap: 10px;
 
-  .header-icon-btn {
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: none; background: transparent; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
     color: var(--color-text-secondary);
-    transition: all var(--duration-fast) var(--ease-out);
-    &:hover { color: var(--color-primary-hover); background: var(--color-primary-bg); }
+    transition: all 0.2s var(--ease-bounce);
+    &:hover { background: var(--color-primary-bg); color: var(--color-primary); }
   }
 
   .notification-badge :deep(.el-badge__content) {
-    background: var(--color-danger);
-    font-size: 11px;
+    background: var(--gradient-primary); font-size: 11px;
+    border: none;
+  }
+
+  .btn-ghost {
+    padding: 7px 18px; border-radius: var(--radius-full);
+    border: none; background: transparent; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+    transition: all 0.2s;
+    &:hover { background: var(--color-primary-bg); color: var(--color-primary); }
   }
 
   .btn-gradient {
+    padding: 7px 20px; border-radius: var(--radius-full);
+    border: none; cursor: pointer;
+    font-size: 14px; font-weight: 600; color: #fff;
+    font-family: var(--font-sans);
     background: var(--gradient-primary);
-    border: none;
-    color: #fff;
-    font-weight: var(--weight-medium);
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
-    transition: all var(--duration-fast) var(--ease-out);
-    &:hover { box-shadow: var(--glow-primary-lg); transform: translateY(-1px); color: #fff; }
-  }
-
-  .btn-outline {
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
-    background: transparent;
-    transition: all var(--duration-fast) var(--ease-out);
-    &:hover { border-color: var(--color-border-glow); color: var(--color-primary-hover); }
+    box-shadow: 0 2px 12px rgba(196,169,106,0.25);
+    transition: all 0.2s var(--ease-bounce);
+    &:hover { box-shadow: 0 4px 20px rgba(196,169,106,0.30); transform: translateY(-1px); }
   }
 }
 
 .user-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-md);
-  transition: background var(--duration-fast) var(--ease-out);
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 4px 10px; border-radius: var(--radius-full);
+  transition: background 0.2s;
   &:hover { background: var(--color-surface-hover); }
-
-  .user-avatar-sm {
-    background: var(--gradient-primary);
-    color: #fff;
-    font-weight: var(--weight-semibold);
-    font-size: 13px;
-    box-shadow: 0 0 8px rgba(99, 102, 241, 0.2);
-  }
-
-  .user-name-text {
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    font-weight: var(--weight-medium);
-  }
-
-  .user-arrow { font-size: 12px; color: var(--color-text-muted); }
 }
+
+.user-avatar-gradient {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--gradient-primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+  box-shadow: 0 2px 8px rgba(196,169,106,0.25);
+}
+
+.user-name-text { font-size: 14px; color: var(--color-text); font-weight: 500; }
+.user-arrow { font-size: 12px; color: var(--color-text-muted); }
 
 // ====== 主内容 ======
-.public-main {
-  flex: 1;
-  background: var(--color-bg);
-}
+.public-main { flex: 1; background: var(--color-bg); }
 
 // ====== 通知弹窗 ======
 .notify-pop {
-  .notify-pop-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--color-border);
-    margin-bottom: var(--space-3);
-    .notify-pop-title { font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--color-text); }
-    .unread-info { font-size: var(--text-xs); color: var(--color-accent); font-weight: var(--weight-medium); flex: 1; }
-  }
+  .notify-pop-header { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); margin-bottom: 12px; }
+  .notify-pop-title { font-size: 16px; font-weight: 700; color: var(--color-text); }
+  .unread-info { font-size: 12px; color: var(--color-primary); font-weight: 600; flex: 1; }
 }
 
 .notify-pop-list { max-height: 420px; overflow-y: auto; }
 
 .notify-item {
-  display: flex; align-items: flex-start; gap: var(--space-3);
-  padding: var(--space-3); border-radius: var(--radius-md);
-  cursor: pointer; transition: background var(--duration-fast) var(--ease-out);
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px; border-radius: 14px;
+  cursor: pointer; transition: background 0.2s;
   &:hover { background: var(--color-surface-hover); }
-
-  &.unread {
-    background: var(--color-accent-bg);
-    .notify-title { font-weight: var(--weight-semibold); }
-  }
-  .notify-icon {
-    width: 36px; height: 36px; border-radius: var(--radius-md);
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  }
+  &.unread { background: rgba(196,169,106,0.04); .notify-title { font-weight: 600; } }
+  .notify-icon { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .notify-body { flex: 1; min-width: 0; }
-  .notify-title { font-size: var(--text-sm); color: var(--color-text); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .notify-content { font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.5; max-height: 36px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .notify-time { font-size: 11px; color: var(--color-text-muted); margin-top: var(--space-1); }
+  .notify-title { font-size: 14px; color: var(--color-text); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .notify-content { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; max-height: 36px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .notify-time { font-size: 11px; color: var(--color-text-muted); margin-top: 4px; }
   .notify-actions { flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
 }
 
@@ -399,43 +316,38 @@ const handleCommand = (command: string) => {
 
 .mobile-drawer-overlay {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);
   display: flex; justify-content: flex-end;
 }
 
 .mobile-drawer {
-  width: 280px; height: 100%;
-  display: flex; flex-direction: column;
-  border-radius: 0;
-  border-left: 1px solid var(--color-border-glow);
+  width: 280px; height: 100%; display: flex; flex-direction: column;
+  border-radius: 0; border-left: 1px solid var(--color-border-glow);
 }
 
 .mobile-drawer-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
-  .mobile-drawer-title { font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--color-text); }
+  padding: 16px 20px; border-bottom: 1px solid var(--color-border);
+  .mobile-drawer-title { font-size: 18px; font-weight: 700; color: var(--color-text); }
 }
 
-.mobile-drawer-menu { flex: 1; padding: var(--space-3); overflow-y: auto; }
+.mobile-drawer-menu { flex: 1; padding: 12px; overflow-y: auto; }
 
 .mobile-menu-item {
-  display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
-  font-size: var(--text-base); color: var(--color-text); cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 14px;
+  font-size: 15px; color: var(--color-text); cursor: pointer;
+  transition: all 0.2s var(--ease-bounce);
   &:hover { background: var(--color-surface-hover); }
-  &.active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: var(--weight-medium); }
+  &.active { background: var(--color-primary-bg); color: var(--color-primary); font-weight: 600; }
   &.danger { color: var(--color-danger); }
 }
 
-.mobile-menu-divider { height: 1px; background: var(--color-border); margin: var(--space-2) 0; }
+.mobile-menu-divider { height: 1px; background: var(--color-border); margin: 8px 0; }
 
-// 抽屉动画
 .drawer-slide-enter-active, .drawer-slide-leave-active {
-  transition: opacity var(--duration-slow) var(--ease-out);
-  .mobile-drawer { transition: transform var(--duration-slow) var(--ease-out); }
+  transition: opacity 0.3s var(--ease-out);
+  .mobile-drawer { transition: transform 0.3s var(--ease-out); }
 }
 .drawer-slide-enter-from, .drawer-slide-leave-to {
   opacity: 0;

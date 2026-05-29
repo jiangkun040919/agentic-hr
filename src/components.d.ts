@@ -7,6 +7,8 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    AIEnhancePanel: typeof import('./components/resume/AIEnhancePanel.vue')['default']
+    DraggableResumePopup: typeof import('./components/resume/DraggableResumePopup.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAside: typeof import('element-plus/es')['ElAside']
     ElAvatar: typeof import('element-plus/es')['ElAvatar']
@@ -14,6 +16,7 @@ declare module 'vue' {
     ElBreadcrumb: typeof import('element-plus/es')['ElBreadcrumb']
     ElBreadcrumbItem: typeof import('element-plus/es')['ElBreadcrumbItem']
     ElButton: typeof import('element-plus/es')['ElButton']
+    ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']
     ElCard: typeof import('element-plus/es')['ElCard']
     ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
     ElCheckboxGroup: typeof import('element-plus/es')['ElCheckboxGroup']
@@ -36,7 +39,6 @@ declare module 'vue' {
     ElIcon: typeof import('element-plus/es')['ElIcon']
     ElInput: typeof import('element-plus/es')['ElInput']
     ElInputNumber: typeof import('element-plus/es')['ElInputNumber']
-    ElLink: typeof import('element-plus/es')['ElLink']
     ElMain: typeof import('element-plus/es')['ElMain']
     ElMenu: typeof import('element-plus/es')['ElMenu']
     ElMenuItem: typeof import('element-plus/es')['ElMenuItem']
@@ -65,11 +67,22 @@ declare module 'vue' {
     ElTimelineItem: typeof import('element-plus/es')['ElTimelineItem']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElUpload: typeof import('element-plus/es')['ElUpload']
+    GraphCanvas: typeof import('./components/graph/GraphCanvas.vue')['default']
     InterviewDetailDialog: typeof import('./components/interview/InterviewDetailDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ScheduleInterviewDialog: typeof import('./components/interview/ScheduleInterviewDialog.vue')['default']
     StarfieldBackground: typeof import('./components/StarfieldBackground.vue')['default']
+    VBtn: typeof import('./components/ui/VBtn.vue')['default']
+    VCard: typeof import('./components/ui/VCard.vue')['default']
+    VChip: typeof import('./components/ui/VChip.vue')['default']
+    VDialog: typeof import('./components/ui/VDialog.vue')['default']
+    VEmpty: typeof import('./components/ui/VEmpty.vue')['default']
+    VInput: typeof import('./components/ui/VInput.vue')['default']
+    VProgress: typeof import('./components/ui/VProgress.vue')['default']
+    VSelect: typeof import('./components/ui/VSelect.vue')['default']
+    VSkeleton: typeof import('./components/ui/VSkeleton.vue')['default']
+    VTag: typeof import('./components/ui/VTag.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

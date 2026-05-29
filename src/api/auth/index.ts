@@ -25,10 +25,15 @@ export interface UserInfo {
   userId: number
   username: string
   role: string
-  realName: string
+  realName?: string
   phone?: string
   email?: string
   avatar?: string
+  education?: string
+  workYears?: number
+  resumeContent?: string
+  resumeUrl?: string
+  candidateId?: number
 }
 
 export const login = (data: LoginParams) => {
@@ -55,6 +60,9 @@ export const changePassword = (data: { oldPassword: string; newPassword: string 
   return request.post('/auth/change-password', data)
 }
 
-export const updateProfile = (data: { realName?: string; phone?: string; email?: string }) => {
+export const updateProfile = (data: {
+  realName?: string; phone?: string; email?: string
+  education?: string; workYears?: number; resumeContent?: string; resumeUrl?: string
+}) => {
   return request.put('/auth/profile', data)
 }

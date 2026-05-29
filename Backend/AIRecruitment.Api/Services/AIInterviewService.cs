@@ -73,7 +73,9 @@ public class AIInterviewService : IAIInterviewService
     public async Task<AIInterviewSession> CreateSessionAsync(int deliveryId, int candidateId, int jobId)
     {
         // 检查是否允许进行AI面试
-        var delivery = await _context.Deliveries.FindAsync(deliveryId);
+        var delivery = await _context.Deliveries
+            .Include(d => d.Candidate)
+            .FirstOrDefaultAsync(d => d.DeliveryId == deliveryId);
         if (delivery == null)
             throw new Exception("投递记录不存在");
         
@@ -96,11 +98,15 @@ public class AIInterviewService : IAIInterviewService
         if (existing != null)
             return existing;
 
+        // 从 Delivery 取 CandidateId（避免前端传错导致外键冲突）
+        var actualCandidateId = delivery.CandidateId;
+        var actualJobId = delivery.JobId;
+
         var session = new AIInterviewSession
         {
             DeliveryId = deliveryId,
-            CandidateId = candidateId,
-            JobId = jobId,
+            CandidateId = actualCandidateId,
+            JobId = actualJobId,
             Status = 0,
             CreatedAt = DateTime.Now
         };
@@ -126,24 +132,46 @@ public class AIInterviewService : IAIInterviewService
         session.StartTime = DateTime.Now;
         await _context.SaveChangesAsync();
 
-        var systemPrompt = $@"你是一个专业、友好的AI面试官。请严格按照以下规则进行面试：
+        var systemPrompt = $@"你是一个专业、严谨的AI面试官。请严格按照以下规则进行面试：
 
-1. 你正在面试一位应聘【{job.Title}】岗位的候选人
-2. 岗位信息：{job.JD}
-3. 任职要求：{job.Requirements}
-4. 面试没有固定轮数限制，你根据候选人的回答质量和表现自行决定何时结束面试
-5. 至少需要{MIN_ROUNDS}轮问答（含自我介绍），最多不超过{MAX_ROUNDS}轮
-6. 每轮只问1个问题，问题要具体且针对岗位
-7. 问题类型要多样化：开场、技术深度、场景模拟、行为面试
-8. 保持专业、友好，不要给提示或透露答案
-9. 每次只输出一个问题，不要加前缀如'面试官：'等
-10. 当你判断候选人回答质量已经足够评估，或者已经超过{MAX_ROUNDS}轮时，你必须返回格式化的JSON评分结果来结束面试
+## 面试基本信息
+- 岗位：【{job.Title}】
+- 岗位职责：{job.JD}
+- 任职要求：{job.Requirements}
+
+## 面试规则
+1. 至少{MIN_ROUNDS}轮问答，最多{MAX_ROUNDS}轮
+2. 每轮只问1个问题，具体且针对岗位
+3. 问题类型多样化：技术深度 → 项目经验 → 场景模拟 → 行为面试
+4. 保持专业、友好，不给提示或透露答案
+5. 只输出问题，不加'面试官：'等前缀
+
+## 岗位类型题库策略
+{(job.Title.Contains("Java") || job.Title.Contains("Python") || job.Title.Contains("前端") || job.Title.Contains("Go") || job.Title.Contains("C++") || job.Title.Contains("Rust") || job.Title.Contains("开发") || job.Title.Contains("工程师") || job.Title.Contains("架构") || job.Title.Contains("DevOps") ? 
+"- 技术岗策略：从基础原理开始，逐步深入到系统设计和架构决策" : "")}
+{(job.Title.Contains("产品") || job.Title.Contains("经理") ? 
+"- 产品岗策略：侧重需求分析能力、数据驱动思维、跨团队协作案例" : "")}
+{(job.Title.Contains("数据") || job.Title.Contains("分析") || job.Title.Contains("AI") || job.Title.Contains("机器") ? 
+"- 数据/AI岗策略：侧重分析方法论、模型选型经验、业务理解能力" : "")}
+
+## Few-shot 追问示例
+候选人回答较浅时追问细节，回答完整时深入复盘反思。
+
+## 评分校准锚点
+90-100：表现卓越，技能高度匹配，沟通清晰有深度
+75-89：表现良好，满足岗位核心要求，有明显亮点
+60-74：基本胜任，但有短板需进一步考察
+40-59：存在较大差距，不推荐
+0-39：与岗位严重不匹配
+
+当判断候选人回答质量足够评估或超过{MAX_ROUNDS}轮时，返回JSON评分结束面试：
+{{""totalScore"":数字,""professional"":数字,""communication"":数字,""problemSolving"":数字,""cultureFit"":数字,""strengths"":[""优势""],""weaknesses"":[""不足""],""recommendation"":""建议/不建议/待定""}}
 
 ";
 
         var userPrompt = candidate != null
-            ? $"候选人信息：姓名={candidate.RealName}，学历={candidate.Education ?? "未知"}，工作年限={candidate.WorkYears ?? 0}年。\n\n请以面试官身份开始面试，第一句话直接让候选人做自我介绍，不要说其他内容。只输出一句话，例如：'你好！欢迎参加面试，请你先做一个简单的自我介绍。'"
-            : "请以面试官身份开始面试，第一句话直接让候选人做自我介绍，不要说其他内容。只输出一句话，例如：'你好！欢迎参加面试，请你先做一个简单的自我介绍。'";
+            ? $"候选人信息：姓名={candidate.RealName}，学历={candidate.Education ?? "未知"}，工作年限={candidate.WorkYears ?? 0}年。\n\n请以面试官身份开始面试，第一句话直接让候选人做自我介绍，不要说其他内容。"
+            : "请以面试官身份开始面试，第一句话直接让候选人做自我介绍，不要说其他内容。";
 
         var content = await CallAIAsync(systemPrompt, userPrompt);
 
@@ -278,25 +306,9 @@ public class AIInterviewService : IAIInterviewService
             $"[{m.Role}]: {m.Content}"));
 
         // 构建一个让 AI 自行判断是否结束的 prompt
-        var systemPrompt = $@"你是一个专业面试官，正在进行【{job.Title}】岗位的面试。
-当前是第{currentRound + 1}轮问答。
+        var systemPrompt = $@"你是一个专业面试官，正在进行【{job.Title}】岗位的面试。\n当前是第{currentRound + 1}轮问答。\n\n请根据候选人最新的回答，自行判断：\n- 如果候选人的回答已经足够充分，可以进行综合评估了，或者回答质量很差已经没有必要继续了，请输出最终的JSON评分结果来结束面试\n- 如果还需要继续深入了解候选人的能力，请给出简短点评（20字内）然后问下一个问题\n\n面试结束的JSON评分格式要求：\n{{\""totalScore\"":数字,\""professional\"":数字,\""communication\"":数字,\""problemSolving\"":数字,\""cultureFit\"":数字,\""strengths\"":[\""优势1\"",\""优势2\""],\""weaknesses\"":[\""不足1\""],\""recommendation\"":\""建议/不建议/待定\""}}\n\n如果选择继续面试，只输出点评和下一个问题，不要加任何前缀或格式。\n如果选择结束面试，只输出JSON，不要加markdown代码块或其他文字。";
 
-请根据候选人最新的回答，自行判断：
-- 如果候选人的回答已经足够充分，可以进行综合评估了，或者回答质量很差已经没有必要继续了，请输出最终的JSON评分结果来结束面试
-- 如果还需要继续深入了解候选人的能力，请给出简短点评（20字内）然后问下一个问题
-
-面试结束的JSON评分格式要求：
-{{""totalScore"":数字,""professional"":数字,""communication"":数字,""problemSolving"":数字,""cultureFit"":数字,""strengths"":[""优势1"",""优势2""],""weaknesses"":[""不足1""],""recommendation"":""建议/不建议/待定""}}
-
-如果选择继续面试，只输出点评和下一个问题，不要加任何前缀或格式。
-如果选择结束面试，只输出JSON，不要加markdown代码块或其他文字。";
-
-        var userPrompt = $@"面试历史：
-{historySummary}
-
-候选人最新回答：{lastAnswer}
-
-当前第{currentRound + 1}轮。请判断是继续提问还是结束面试给出评分。";
+        var userPrompt = $@"面试历史：\n{historySummary}\n\n候选人最新回答：{lastAnswer}\n\n当前第{currentRound + 1}轮。请判断是继续提问还是结束面试给出评分。";
 
         var response = await CallAIAsync(systemPrompt, userPrompt);
         response = response.Trim();
@@ -347,23 +359,9 @@ public class AIInterviewService : IAIInterviewService
         var lastQuestion = history.LastOrDefault(m => m.Role == "ai")?.Content ?? "";
         qaPairs.Add($"Q{qaPairs.Count + 1}: {lastQuestion}\nA{qaPairs.Count + 1}: {lastAnswer}");
 
-        var systemPrompt = $@"你是一个资深HR面试专家。请根据候选人完整的面试回答，给出综合评价。
+        var systemPrompt = $@"你是一个资深HR面试专家。请根据候选人完整的面试回答，给出综合评价。\n\n评价必须包含：\n1. 综合评分(0-100整数)\n2. 分项评分：professional(专业能力)、communication(沟通表达)、problemSolving(问题解决)、cultureFit(文化适配)，每项0-100\n3. 优势(数组，2-3条)\n4. 不足(数组，1-2条)\n5. 录用建议：建议/不建议/待定\n\n请返回纯JSON格式，不要markdown代码块，不要任何其他文字。格式如下：\n{{\""totalScore\"":数字,\""professional\"":数字,\""communication\"":数字,\""problemSolving\"":数字,\""cultureFit\"":数字,\""strengths\"":[\""优势1\""],\""weaknesses\"":[\""不足1\""],\""recommendation\"":\""建议\""}}";
 
-评价必须包含：
-1. 综合评分(0-100整数)
-2. 分项评分：professional(专业能力)、communication(沟通表达)、problemSolving(问题解决)、cultureFit(文化适配)，每项0-100
-3. 优势(数组，2-3条)
-4. 不足(数组，1-2条)
-5. 录用建议：建议/不建议/待定
-
-请返回纯JSON格式，不要markdown代码块，不要任何其他文字。格式如下：
-{{""totalScore"":数字,""professional"":数字,""communication"":数字,""problemSolving"":数字,""cultureFit"":数字,""strengths"":[""优势1""],""weaknesses"":[""不足1""],""recommendation"":""建议""}}";
-
-        var userPrompt = $@"岗位：{job.Title}
-要求：{job.Requirements}
-
-问答记录：
-{string.Join("\n", qaPairs)}";
+        var userPrompt = $@"岗位：{job.Title}\n要求：{job.Requirements}\n\n问答记录：\n{string.Join("\n", qaPairs)}";
 
         var eval = await CallAIAsync(systemPrompt, userPrompt);
         eval = eval.Trim();
@@ -591,7 +589,7 @@ public class AIInterviewService : IAIInterviewService
         // 清除之前的 Header
         _httpClient.DefaultRequestHeaders.Clear();
         
-        // MiniMax API 认证格式: Authorization: Bearer {API_KEY}
+        // MiniMax API 认证格式: Authorization: Bearer ***
         _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Bearer {_aiOptions.ApiKey}");
         
         // 添加 Content-Type Header

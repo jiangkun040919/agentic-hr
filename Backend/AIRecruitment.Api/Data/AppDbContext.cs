@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowDefinition> WorkflowDefinitions { get; set; }
     public DbSet<WorkflowInstance> WorkflowInstances { get; set; }
     public DbSet<WorkflowStepLog> WorkflowStepLogs { get; set; }
+    public DbSet<SeedTemplate> SeedTemplates { get; set; }
+    public DbSet<DiscoveredJob> DiscoveredJobs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -159,6 +161,13 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<WorkflowStepLog>()
             .HasIndex(l => l.InstanceId);
+
+        modelBuilder.Entity<SeedTemplate>()
+            .HasIndex(t => t.Name)
+            .IsUnique();
+
+        modelBuilder.Entity<DiscoveredJob>()
+            .HasIndex(d => d.Status);
 
         modelBuilder.Entity<WorkflowInstance>()
             .HasOne(i => i.Definition)

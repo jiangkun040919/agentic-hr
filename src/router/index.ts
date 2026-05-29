@@ -27,6 +27,11 @@ import AIInterviewManagement from '@/views/admin/AIInterviewManagement.vue'
 import InterviewManagement from '@/views/admin/InterviewManagement.vue'
 import Profile from '@/views/admin/Profile.vue'
 import CommonInterviewerSetting from '@/views/admin/CommonInterviewerSetting.vue'
+import BenchmarkDashboard from '@/views/admin/BenchmarkDashboard.vue'
+import CompliancePage from '@/views/admin/CompliancePage.vue'
+
+// 知识图谱
+import KnowledgeGraph from '@/views/admin/KnowledgeGraph.vue'
 
 // 公共页面 - AI面试
 import AIInterview from '@/views/public/AIInterview.vue'
@@ -83,13 +88,18 @@ const routes: RouteRecordRaw[] = [
       { path: 'resumes/:id', name: 'ResumeDetail', component: ResumeDetail, meta: { title: '简历详情', requiresAuth: true, role: 'hr' } },
       { path: 'ai-center', redirect: '/admin/smart-screening' },
       { path: 'statistics', redirect: '/admin/recruitment-strategy' },
-      { path: 'knowledge-graph', redirect: '/admin/recruitment-strategy' },
       // ── 其他不变路由 ──
       { path: 'interviews', name: 'InterviewManagement', component: InterviewManagement, meta: { title: '面试管理', requiresAuth: true, role: 'hr' } },
       { path: 'ai-interviews', name: 'AIInterviewManagement', component: AIInterviewManagement, meta: { title: 'AI面试管理', requiresAuth: true, role: 'hr' } },
       { path: 'ai-interviews/:sessionId', name: 'AIInterviewDetail', component: AIInterviewManagement, meta: { title: 'AI面试详情', requiresAuth: true, role: 'hr' } },
       { path: 'profile', name: 'Profile', component: Profile, meta: { title: '个人中心', requiresAuth: true } },
       { path: 'interviewer-settings', name: 'CommonInterviewerSetting', component: CommonInterviewerSetting, meta: { title: '常用面试官设置', requiresAuth: true, role: 'hr' } },
+      { path: 'benchmark', name: 'BenchmarkDashboard', component: BenchmarkDashboard, meta: { title: '准确率评测', requiresAuth: true, role: 'hr' } },
+      { path: 'compliance', name: 'CompliancePage', component: CompliancePage, meta: { title: 'AI合规', requiresAuth: true, role: 'hr' } },
+      { path: 'seed-templates', redirect: '/admin/jobs' },
+      { path: 'discovered-jobs', redirect: '/admin/jobs' },
+      // ── 知识图谱 ──
+      { path: 'knowledge-graph', name: 'KnowledgeGraph', component: KnowledgeGraph, meta: { title: '知识图谱', requiresAuth: true, role: 'hr' } },
     ]
   },
 ]
