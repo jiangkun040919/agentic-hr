@@ -76,22 +76,22 @@ public class UserService : IUserService
         };
 
         _context.SysUsers.Add(user);
-        
+        await _context.SaveChangesAsync();  // 先保存用户以获取 UserId
+
         // 如果是求职者，同时创建Candidate记录
         if (request.Role == "candidate")
         {
             var candidate = new Candidate
             {
-                UserId = user.UserId,
+                UserId = user.UserId,  // 此时 UserId 已被 EF 赋值
                 RealName = request.RealName,
                 Phone = request.Phone ?? string.Empty,
                 Email = request.Email,
                 CreatedAt = DateTime.Now
             };
             _context.Candidates.Add(candidate);
+            await _context.SaveChangesAsync();
         }
-
-        await _context.SaveChangesAsync();
         
         // 生成Token
         var token = GenerateJwtToken(user);
@@ -150,18 +150,27 @@ public class UserService : IUserService
         if (!string.IsNullOrWhiteSpace(request.Email))
             user.Email = request.Email.Trim();
 
-        // 同时更新 Candidate 表的简历字段
+        // 同时更新 Candidate 表的简历字段（不存在则自动创建）
         var candidate = await _context.Candidates.FirstOrDefaultAsync(c => c.UserId == userId);
-        if (candidate != null)
+        if (candidate == null)
         {
-            if (request.Education != null) candidate.Education = request.Education;
-            if (request.WorkYears.HasValue) candidate.WorkYears = request.WorkYears;
-            if (request.ResumeContent != null) candidate.ResumeContent = request.ResumeContent;
-            if (request.ResumeUrl != null) candidate.ResumeUrl = request.ResumeUrl;
-            if (!string.IsNullOrWhiteSpace(request.RealName)) candidate.RealName = request.RealName.Trim();
-            if (!string.IsNullOrWhiteSpace(request.Phone)) candidate.Phone = request.Phone.Trim();
-            if (!string.IsNullOrWhiteSpace(request.Email)) candidate.Email = request.Email?.Trim();
+            candidate = new Candidate
+            {
+                UserId = userId,
+                RealName = user.RealName,
+                Phone = user.Phone ?? "",
+                Email = user.Email,
+                CreatedAt = DateTime.Now
+            };
+            _context.Candidates.Add(candidate);
         }
+        if (request.Education != null) candidate.Education = request.Education;
+        if (request.WorkYears.HasValue) candidate.WorkYears = request.WorkYears;
+        if (request.ResumeContent != null) candidate.ResumeContent = request.ResumeContent;
+        if (request.ResumeUrl != null) candidate.ResumeUrl = request.ResumeUrl;
+        if (!string.IsNullOrWhiteSpace(request.RealName)) candidate.RealName = request.RealName.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Phone)) candidate.Phone = request.Phone.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Email)) candidate.Email = request.Email?.Trim();
 
         await _context.SaveChangesAsync();
     }
@@ -182,7 +191,7 @@ public class UserService : IUserService
             issuer: _configuration["Jwt:Issuer"] ?? "AIRecruitment",
             audience: _configuration["Jwt:Issuer"] ?? "AIRecruitment",
             claims: claims,
-            expires: DateTime.Now.AddDays(7),
+            expires: DateTime.UtcNow.AddDays(7),
             signingCredentials: credentials
         );
 

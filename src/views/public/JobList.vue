@@ -98,7 +98,12 @@
         <div class="card-accent" :style="{ background: deptGradients[job.dept] || 'var(--gradient-primary)' }" />
         <div class="card-content">
           <div class="card-header">
-            <h3 class="card-title">{{ job.title }}</h3>
+            <div class="card-clay-icon" :style="clayIconStyle(job.dept)">
+              <span class="card-clay-emoji">{{ deptEmoji[job.dept] || '💼' }}</span>
+            </div>
+            <div class="card-header-text">
+              <h3 class="card-title">{{ job.title }}</h3>
+            </div>
             <div class="card-match" v-if="job.matchRate">
               <div class="match-ring" :style="{ '--pct': job.matchRate }">
                 <span class="match-num">{{ job.matchRate }}</span>
@@ -185,46 +190,73 @@ const searchKeyword = ref('')
 const searchDept = ref('')
 const searchCity = ref('')
 
-const deptOptions = ['技术部', 'AI部', '前端部', '数据部', '产品部', '架构部', '运维部', '安全部', '质量部', '移动部', '云平台部', '数据平台部', '设计部']
+const deptOptions = ref<string[]>([])
 const cityOptions = ['北京', '上海', '广州', '深圳', '杭州', '成都', '武汉', '南京', '西安', '苏州']
 
-const deptGradients: Record<string, string> = {
-  '技术部': 'linear-gradient(135deg, #C4A96A, #A08848)',
-  'AI部': 'linear-gradient(135deg, #8B9A6E, #6B7A50)',
-  '前端部': 'linear-gradient(135deg, #8A9BA8, #6B7B88)',
-  '数据部': 'linear-gradient(135deg, #7A8B5E, #5A7040)',
-  '产品部': 'linear-gradient(135deg, #C4945A, #A07040)',
-  '架构部': 'linear-gradient(135deg, #B8A878, #A08848)',
-  '运维部': 'linear-gradient(135deg, #A09888, #786E60)',
-  '安全部': 'linear-gradient(135deg, #B8605A, #984840)',
-  '质量部': 'linear-gradient(135deg, #6B8B4E, #5A7040)',
-  '移动部': 'linear-gradient(135deg, #B8A878, #C4945A)',
-  '云平台部': 'linear-gradient(135deg, #9AABB8, #8A9BA8)',
-  '数据平台部': 'linear-gradient(135deg, #5A7040, #7A8B5E)',
-  '设计部': 'linear-gradient(135deg, #C08070, #C4A96A)',
+// 部门渐变 & 标签色 & emoji（动态从 API 填充）
+const deptGradients = reactive<Record<string, string>>({})
+const deptTagColors = reactive<Record<string, string>>({})
+const deptEmoji = reactive<Record<string, string>>({})
+
+const TAG_COLORS = ['coral','mint','sky','sunny','purple','gray'] as const
+
+// 部门 emoji 配色库 (已知部门直接用，未知部门自动生成)
+const deptPresets: Record<string, { emoji: string; color: string }> = {
+  '技术部': { emoji: '💻', color: '#C4A96A' },
+  'AI部': { emoji: '🤖', color: '#8B9A6E' },
+  '前端部': { emoji: '🎨', color: '#8A9BA8' },
+  '数据部': { emoji: '📊', color: '#7A8B5E' },
+  '产品部': { emoji: '📱', color: '#C4945A' },
+  '架构部': { emoji: '🏗️', color: '#B8A878' },
+  '运维部': { emoji: '⚙️', color: '#A09888' },
+  '安全部': { emoji: '🛡️', color: '#B8605A' },
+  '质量部': { emoji: '✅', color: '#6B8B4E' },
+  '移动部': { emoji: '📲', color: '#B8A878' },
+  '云平台部': { emoji: '☁️', color: '#9AABB8' },
+  '数据平台部': { emoji: '🗄️', color: '#5A7040' },
+  '设计部': { emoji: '✨', color: '#C08070' },
 }
 
-const deptTagColors: Record<string, string> = {
-  '技术部': 'coral', 'AI部': 'mint', '前端部': 'sky', '数据部': 'mint',
-  '产品部': 'sunny', '架构部': 'sunny', '运维部': 'gray', '安全部': 'coral',
-  '质量部': 'mint', '移动部': 'sunny', '云平台部': 'sky', '数据平台部': 'mint', '设计部': 'coral',
+const FALLBACK_EMOJIS = ['📌', '🔖', '🏷️', '📋', '📎', '💼', '🎯', '🚀', '⭐', '💡', '🔔', '📢', '🏢']
+const PRESET_COLORS = ['#C4A96A','#8B9A6E','#8A9BA8','#7A8B5E','#C4945A','#B8A878','#A09888','#B8605A','#6B8B4E','#9AABB8','#5A7040','#C08070']
+
+// 动态部门 chips（从 API 填充）
+const deptChips = ref<Array<{ name: string; emoji: string; count: number; color: any; customColor: string }>>([])
+
+let _colorIdx = 0
+function getAutoColor(name: string): string {
+  // 用名称 hash 选颜色
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i)
+  return PRESET_COLORS[Math.abs(hash) % PRESET_COLORS.length]
 }
 
-const deptChips = ref([
-  { name: '技术部', emoji: '💻', count: 0, color: '' as any, customColor: '#C4A96A' },
-  { name: 'AI部', emoji: '🤖', count: 0, color: '' as any, customColor: '#8B9A6E' },
-  { name: '前端部', emoji: '🎨', count: 0, color: '' as any, customColor: '#8A9BA8' },
-  { name: '数据部', emoji: '📊', count: 0, color: '' as any, customColor: '#7A8B5E' },
-  { name: '产品部', emoji: '📱', count: 0, color: '' as any, customColor: '#C4945A' },
-  { name: '架构部', emoji: '🏗️', count: 0, color: '' as any, customColor: '#B8A878' },
-  { name: '运维部', emoji: '⚙️', count: 0, color: '' as any, customColor: '#A09888' },
-  { name: '安全部', emoji: '🛡️', count: 0, color: '' as any, customColor: '#B8605A' },
-  { name: '质量部', emoji: '✅', count: 0, color: '' as any, customColor: '#6B8B4E' },
-  { name: '移动部', emoji: '📲', count: 0, color: '' as any, customColor: '#B8A878' },
-  { name: '云平台部', emoji: '☁️', count: 0, color: '' as any, customColor: '#9AABB8' },
-  { name: '数据平台部', emoji: '🗄️', count: 0, color: '' as any, customColor: '#5A7040' },
-  { name: '设计部', emoji: '✨', count: 0, color: '' as any, customColor: '#C08070' },
-])
+// 黏土图标颜色辅助
+function clayIconStyle(dept: string) {
+  const color = deptGradients[dept] ? extractGradientMid(deptGradients[dept]) : '#C4A96A'
+  const light = lightenColor(color, 35)
+  const shadow = darkenColor(color, 35)
+  return { '--clay-color': color, '--clay-light': light, '--clay-shadow': shadow }
+}
+
+function extractGradientMid(grad: string): string {
+  const m = grad.match(/#[0-9a-fA-F]{6}/g)
+  return m?.[1] || m?.[0] || '#C4A96A'
+}
+function lightenColor(hex: string, p: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.min(255, (n >> 16) + Math.round(255 * p / 100))
+  const g = Math.min(255, ((n >> 8) & 0xFF) + Math.round(255 * p / 100))
+  const b = Math.min(255, (n & 0xFF) + Math.round(255 * p / 100))
+  return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')
+}
+function darkenColor(hex: string, p: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, (n >> 16) - Math.round(255 * p / 100))
+  const g = Math.max(0, ((n >> 8) & 0xFF) - Math.round(255 * p / 100))
+  const b = Math.max(0, (n & 0xFF) - Math.round(255 * p / 100))
+  return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')
+}
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
@@ -267,11 +299,31 @@ const animateCounter = (target: number, key: string, duration: number = 1500) =>
 
 const fetchDeptStats = async () => {
   try {
-    const res: any = await request.get('/job/dept-stats')
-    const stats = res?.data || res || []
-    const map: Record<string, number> = {}
-    stats.forEach((s: any) => { map[s.dept] = s.count })
-    deptChips.value.forEach(d => { d.count = map[d.name] || 0 })
+    const stats: any[] = await request.get('/job/dept-stats') || []
+    // 从 API 数据动态构建所有部门信息
+    const chips: typeof deptChips.value = []
+    const options: string[] = []
+    
+    stats.forEach((s: any, idx: number) => {
+      const name = s.dept
+      if (!name) return
+      
+      const preset = deptPresets[name]
+      const color = preset?.color || getAutoColor(name)
+      const emoji = preset?.emoji || FALLBACK_EMOJIS[idx % FALLBACK_EMOJIS.length]
+      const tagColor = TAG_COLORS[idx % TAG_COLORS.length]
+      
+      // 填充映射
+      deptEmoji[name] = emoji
+      deptGradients[name] = `linear-gradient(135deg, ${color}, ${darkenColor(color, 20)})`
+      deptTagColors[name] = tagColor
+      
+      chips.push({ name, emoji, count: s.count, color: '' as any, customColor: color })
+      options.push(name)
+    })
+    
+    deptChips.value = chips
+    deptOptions.value = options
   } catch {}
 }
 
@@ -476,8 +528,33 @@ function onDeptChipsMouseUp() {
 
 .card-content { padding: 20px 20px 14px; flex: 1; }
 
-.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.card-header-text { flex: 1; min-width: 0; }
 .card-title { font-size: 16px; font-weight: 700; margin: 0; line-height: 1.4; }
+
+// 岗位卡片黏土图标
+.card-clay-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(145deg, var(--clay-light), var(--clay-color));
+  box-shadow:
+    3px 3px 8px color-mix(in srgb, var(--clay-shadow) 35%, transparent),
+    -1px -1px 3px rgba(255,255,255,0.2),
+    inset 2px 2px 3px rgba(255,255,255,0.3),
+    inset -2px -2px 4px rgba(0,0,0,0.08);
+}
+.card-clay-emoji {
+  font-size: 20px; line-height: 1;
+  text-shadow:
+    0 2px 1px rgba(0,0,0,0.2),
+    0 -1px 1px rgba(255,255,255,0.5);
+  filter:
+    drop-shadow(0 2px 2px rgba(0,0,0,0.18))
+    brightness(1.08)
+    contrast(1.08)
+    saturate(1.1);
+}
 
 .match-ring {
   width: 48px; height: 48px; border-radius: 50%; position: relative;

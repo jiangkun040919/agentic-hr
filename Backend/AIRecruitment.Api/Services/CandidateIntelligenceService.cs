@@ -110,41 +110,101 @@ public class CandidateIntelligenceService
     /// <summary>推荐适合候选人的最优发展岗位（5个）</summary>
     public async Task<CareerRecommendations> RecommendCareerPathsAsync(int candidateId)
     {
-        var candidate = await _db.Candidates.FirstOrDefaultAsync(c => c.CandidateId == candidateId);
-        if (candidate == null) throw new Exception("候选人不存在");
+        // 兼容前端传 CandidateId 或 UserId
+        var candidate = await _db.Candidates.FirstOrDefaultAsync(c => c.CandidateId == candidateId)
+                     ?? await _db.Candidates.FirstOrDefaultAsync(c => c.UserId == candidateId);
+        if (candidate == null) throw new Exception("候选人不存在，请先完善个人资料");
 
-        var skillsText = await GetCandidateSkillsTextAsync(candidateId);
+        var actualId = candidate.CandidateId;
+        var skillsText = await GetCandidateSkillsTextAsync(actualId);
         var cSkills = ExtractSkills(skillsText);
 
         var allJobs = await _db.Jobs.Where(j => j.Status == 1).ToListAsync();
-        var scored = new List<(Job Job, double Score, int Gap)>();
+        var scored = new List<(Job Job, double Score, int Gap, List<string> Matched, List<string> Missing)>();
 
         foreach (var job in allJobs)
         {
             var jSkills = ExtractSkills($"{job.Requirements} {job.JD}");
             if (jSkills.Count == 0) continue;
-            var matched = cSkills.Intersect(jSkills, StringComparer.OrdinalIgnoreCase).Count();
-            var matchRate = (double)matched / jSkills.Count * 100;
-            var gap = jSkills.Count - matched;
-            scored.Add((job, matchRate, gap));
+            var matched = cSkills.Intersect(jSkills, StringComparer.OrdinalIgnoreCase).ToList();
+            var missing = jSkills.Except(cSkills, StringComparer.OrdinalIgnoreCase).ToList();
+            var matchRate = (double)matched.Count / jSkills.Count * 100;
+            scored.Add((job, matchRate, jSkills.Count - matched.Count, matched, missing));
+        }
+
+        var top5 = scored
+            .OrderByDescending(s => s.Score)
+            .Take(5)
+            .Select(s => new CareerRecommendation
+            {
+                JobId = s.Job.JobId,
+                JobTitle = s.Job.Title,
+                MatchRate = Math.Round(s.Score, 1),
+                SkillGapCount = s.Gap,
+                Department = s.Job.Dept,
+                Location = s.Job.Location,
+                SalaryRange = s.Job.SalaryMin.HasValue && s.Job.SalaryMax.HasValue
+                    ? $"{s.Job.SalaryMin}K-{s.Job.SalaryMax}K" : null,
+                MatchedSkills = s.Matched,
+                MissingSkills = s.Missing
+            }).ToList();
+
+        // ═══ AI 批量生成推荐理由（一次调用） ═══
+        if (top5.Count > 0)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"候选人技能: {string.Join("、", cSkills)}");
+            sb.AppendLine($"候选人学历: {candidate.Education ?? "未知"}");
+            sb.AppendLine($"工作年限: {candidate.WorkYears?.ToString() ?? "未知"}年");
+            sb.AppendLine();
+            for (int i = 0; i < top5.Count; i++)
+            {
+                var r = top5[i];
+                sb.AppendLine($"[岗位{i+1}] {r.JobTitle} ({r.Department}·{r.Location})");
+                sb.AppendLine($"  匹配率: {r.MatchRate}%");
+                sb.AppendLine($"  已有技能: {string.Join(", ", r.MatchedSkills)}");
+                sb.AppendLine($"  缺失技能: {string.Join(", ", r.MissingSkills)}");
+                sb.AppendLine();
+            }
+
+            var aiPrompt = $@"你是智能招聘助手。根据候选人技能和岗位匹配情况，为每个推荐岗位生成一句20-35字的个性化推荐理由。
+要求：
+- 每条理由说明为什么这个岗位适合该候选人
+- 结合候选人的实际技能和岗位需求
+- 语气温暖、鼓励，有说服力
+- 每条不超过35字
+
+返回纯JSON数组: [""理由1"", ""理由2"", ...]，只返回JSON不做其他输出。
+每项对应上述[岗位1]...[岗位{top5.Count}]的顺序。
+
+{sb}";
+
+            var aiResult = await SafeCallAI(aiPrompt);
+            if (!string.IsNullOrEmpty(aiResult))
+            {
+                try
+                {
+                    var cleaned = aiResult.Trim();
+                    if (cleaned.StartsWith("```json")) cleaned = cleaned[7..];
+                    else if (cleaned.StartsWith("```")) cleaned = cleaned[3..];
+                    if (cleaned.EndsWith("```")) cleaned = cleaned[..^3];
+                    cleaned = cleaned.Trim();
+                    var reasons = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(cleaned);
+                    if (reasons != null)
+                    {
+                        for (int i = 0; i < Math.Min(reasons.Count, top5.Count); i++)
+                            top5[i].AIReason = reasons[i];
+                    }
+                }
+                catch { /* AI 解析失败，降级无理由 */ }
+            }
         }
 
         return new CareerRecommendations
         {
             CandidateName = candidate.RealName,
             CurrentSkills = cSkills,
-            Recommendations = scored
-                .OrderByDescending(s => s.Score)
-                .Take(5)
-                .Select(s => new CareerRecommendation
-                {
-                    JobId = s.Job.JobId,
-                    JobTitle = s.Job.Title,
-                    MatchRate = Math.Round(s.Score, 1),
-                    SkillGapCount = s.Gap,
-                    Department = s.Job.Dept,
-                    Location = s.Job.Location
-                }).ToList()
+            Recommendations = top5
         };
     }
 
@@ -276,7 +336,8 @@ public class CandidateIntelligenceService
     /// <summary>从候选人所有可用数据源提取技能关键词</summary>
     private async Task<string> GetCandidateSkillsTextAsync(int candidateId)
     {
-        var candidate = await _db.Candidates.FirstOrDefaultAsync(c => c.CandidateId == candidateId);
+        var candidate = await _db.Candidates.FirstOrDefaultAsync(c => c.CandidateId == candidateId)
+                     ?? await _db.Candidates.FirstOrDefaultAsync(c => c.UserId == candidateId);
         if (candidate == null) return "";
 
         var parts = new List<string>();
@@ -383,6 +444,10 @@ public class CareerRecommendation
     public int SkillGapCount { get; set; }
     public string Department { get; set; } = "";
     public string Location { get; set; } = "";
+    public string? SalaryRange { get; set; }
+    public List<string> MatchedSkills { get; set; } = new();
+    public List<string> MissingSkills { get; set; } = new();
+    public string? AIReason { get; set; }
 }
 
 public class CompetitivenessReport

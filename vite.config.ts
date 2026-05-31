@@ -30,6 +30,9 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ['@antv/g6'],
+  },
   server: {
     port: 3000,
     proxy: {

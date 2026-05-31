@@ -51,7 +51,7 @@ public class SysConfigController : ControllerBase
     [Authorize]
     public async Task<IActionResult> SaveCommonInterviewers([FromBody] CommonInterviewersRequest request)
     {
-        var userRole = User.FindFirst("role")?.Value;
+        var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
         if (userRole != "hr" && userRole != "admin")
         {
             return Forbid();

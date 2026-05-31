@@ -67,6 +67,13 @@ service.interceptors.response.use(
       ElMessage.error('请求超时，请稍后重试')
     } else if (error.response) {
       switch (error.response.status) {
+        case 401:
+          localStorage.removeItem('token')
+          localStorage.removeItem('role')
+          localStorage.removeItem('userId')
+          ElMessage.error('登录已过期，请重新登录')
+          router.push('/login')
+          break
         case 404:
           ElMessage.error('请求的资源不存在')
           break

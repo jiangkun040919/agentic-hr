@@ -36,15 +36,6 @@
         </div>
       </div>
 
-      <!-- 技能图谱 -->
-      <div v-if="job" class="graph-card">
-        <div class="graph-header">
-          <span class="graph-icon">🕸️</span>
-          <span>岗位技能图谱 — {{ job.title }}</span>
-        </div>
-        <GraphCanvas :nodes="jobGraphNodes" :edges="jobGraphEdges" :height="350" :loading="jobGraphLoading" @node-click="onJobGraphNodeClick" />
-      </div>
-
       <div v-else-if="!loading" class="empty-state">
         <VEmpty title="岗位不存在" emoji="😢" />
       </div>
@@ -104,9 +95,8 @@ import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
-import { getTransparentMatch, getJobSkillGraph } from '@/api/graph'
+import { getTransparentMatch } from '@/api/graph'
 import { formatSalary } from '@/utils/format'
-import GraphCanvas from '@/components/graph/GraphCanvas.vue'
 import VBtn from '@/components/ui/VBtn.vue'
 import VTag from '@/components/ui/VTag.vue'
 import VProgress from '@/components/ui/VProgress.vue'
@@ -137,25 +127,6 @@ const tmScoreColor = computed(() =>
   (transparentMatch.value?.overallScore || 0) >= 60 ? '#C4A96A' : '#C4A96A'
 )
 
-const jobGraphLoading = ref(false)
-const jobGraphNodes = ref<any[]>([])
-const jobGraphEdges = ref<any[]>([])
-
-const loadJobSkillGraph = async () => {
-  if (!job.value?.title || jobGraphLoading.value) return
-  jobGraphLoading.value = true
-  try {
-    const res = await getJobSkillGraph(job.value.title, 2) as any
-    const data = res?.data || res
-    if (data?.nodes?.length) {
-      jobGraphNodes.value = data.nodes.map((n: any) => ({ id: n.id, label: n.label || n.id, type: n.type || 'Skill', category: n.category || 'default', size: n.type === 'Job' ? 45 : 32 }))
-      jobGraphEdges.value = (data.edges || []).map((e: any, i: number) => ({ id: e.id || `e${i}`, source: e.source, target: e.target, label: e.label || '' }))
-    }
-  } catch { /* silent */ }
-  finally { jobGraphLoading.value = false }
-}
-
-const onJobGraphNodeClick = (nodeId: string) => { /* no-op */ }
 
 const loadTransparentMatch = async () => {
   if (!job.value || matchLoading.value) return
@@ -171,7 +142,7 @@ const loadTransparentMatch = async () => {
 
 onMounted(() => {
   const id = Number(route.params.id)
-  jobStore.fetchJobDetail(id).then(() => { loadJobSkillGraph() })
+  jobStore.fetchJobDetail(id)
 })
 
 const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD')
@@ -231,13 +202,6 @@ const handleDeliver = () => {
 }
 .section-text { color: var(--color-text-secondary); line-height: 1.8; font-size: 15px; }
 
-// 技能图谱卡片
-.graph-card {
-  margin-top: 16px; background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl); overflow: hidden; padding: 20px;
-}
-.graph-header { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; margin-bottom: 16px; }
-.graph-icon { font-size: 20px; }
 
 // 侧边卡片
 .side-card {

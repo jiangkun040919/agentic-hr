@@ -42,9 +42,6 @@
         <el-menu-item index="/admin/recruitment-strategy">
           <el-icon><PieChart /></el-icon><span>招聘策略</span>
         </el-menu-item>
-        <el-menu-item index="/admin/benchmark">
-          <el-icon><DataLine /></el-icon><span>准确率评测</span>
-        </el-menu-item>
         <el-menu-item index="/admin/compliance">
           <el-icon><Checked /></el-icon><span>AI合规</span>
         </el-menu-item>

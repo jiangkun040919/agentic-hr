@@ -63,12 +63,12 @@
         <span class="rf-name">{{ form.resumeUrl.split('/').pop() || '简历文件' }}</span>
         <VBtn variant="ghost" color="coral" size="sm" @click="form.resumeUrl = ''">删除</VBtn>
       </div>
-      <div v-else class="upload-area">
+      <div v-else class="upload-area" :class="{ uploading: uploadLoading }">
         <span class="ua-icon">📤</span>
-        <span>上传简历文件（PDF/Word）</span>
-        <el-upload action="/api/upload" :headers="uploadHeaders" :on-success="handleUploadSuccess" :on-error="handleUploadError" :before-upload="beforeUpload" :show-file-list="false" accept=".pdf,.doc,.docx">
-          <VBtn variant="outlined" color="coral" size="sm">选择文件</VBtn>
-        </el-upload>
+        <span v-if="!uploadLoading">上传简历文件（PDF/Word）</span>
+        <span v-else>上传中...</span>
+        <VBtn variant="outlined" color="coral" size="sm" :disabled="uploadLoading" @click="triggerFileInput">选择文件</VBtn>
+        <input ref="fileInputRef" type="file" accept=".pdf,.doc,.docx" @change="handleFileSelect" hidden />
       </div>
       <p class="upload-hint">支持 PDF、Word 格式，上传后 AI 将自动解析技能标签</p>
     </div>
@@ -76,21 +76,82 @@
     <VBtn variant="filled" color="coral" size="lg" block :loading="saving" @click="handleSave">💾 保存全部</VBtn>
 
     <!-- 推荐岗位 -->
-    <div class="section-card" v-loading="jobsLoading">
-      <h3 class="section-title">🎯 推荐岗位</h3>
-      <div v-if="recommendResult?.recommendations?.length" class="recommend-list">
-        <div v-for="r in recommendResult.recommendations" :key="r.jobId" class="recommend-item" @click="$router.push(`/jobs/${r.jobId}`)">
-          <div class="ri-left">
-            <h4>{{ r.jobTitle }}</h4>
-            <span class="ri-meta">{{ r.department }} · {{ r.location }}</span>
-          </div>
-          <div class="ri-right">
-            <span class="ri-match" :style="{ color: r.matchRate >= 80 ? '#7A8B5E' : r.matchRate >= 60 ? 'var(--color-primary)' : 'var(--color-primary)' }">{{ r.matchRate }}%</span>
-            <VTag v-if="r.skillGapCount === 0" color="mint" size="sm">完美匹配</VTag>
-            <VTag v-else color="sunny" size="sm">差{{ r.skillGapCount }}项</VTag>
+    <div class="section-card recommend-section" v-loading="jobsLoading">
+      <div class="recommend-header">
+        <h3 class="section-title">🎯 为你推荐</h3>
+        <span v-if="recommendResult?.recommendations?.length" class="recommend-count">{{ recommendResult.recommendations.length }} 个岗位</span>
+      </div>
+
+      <!-- 横向卡片滑动区 -->
+      <div
+        v-if="recommendResult?.recommendations?.length"
+        class="recommend-track-wrapper"
+        ref="trackWrapper"
+      >
+        <div class="recommend-track" ref="trackRef" @scroll="onTrackScroll">
+          <div
+            v-for="(r, i) in recommendResult.recommendations"
+            :key="r.jobId"
+            class="recommend-card"
+            :class="{ 'is-active': activeCardIndex === i }"
+            @click="$router.push(`/jobs/${r.jobId}`)"
+          >
+            <!-- 匹配率环形 -->
+            <div class="rc-ring-wrap">
+              <svg class="rc-ring" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="34" fill="none" stroke="var(--color-border-light)" stroke-width="5" />
+                <circle
+                  cx="40" cy="40" r="34" fill="none"
+                  :stroke="r.matchRate >= 80 ? '#7A8B5E' : r.matchRate >= 60 ? '#5B8BA0' : '#A08060'"
+                  stroke-width="5"
+                  stroke-linecap="round"
+                  :stroke-dasharray="`${r.matchRate * 2.136} 213.6`"
+                  transform="rotate(-90 40 40)"
+                  class="rc-ring-fill"
+                />
+                <text x="40" y="36" text-anchor="middle" class="rc-ring-num">{{ Math.round(r.matchRate) }}</text>
+                <text x="40" y="52" text-anchor="middle" class="rc-ring-label">匹配度</text>
+              </svg>
+            </div>
+
+            <!-- 信息区 -->
+            <div class="rc-info">
+              <h4 class="rc-title">{{ r.jobTitle }}</h4>
+              <div class="rc-meta">
+                <span>{{ r.department }}</span>
+                <span class="rc-dot">·</span>
+                <span>{{ r.location }}</span>
+              </div>
+              <div v-if="r.salaryRange" class="rc-salary">💰 {{ r.salaryRange }}</div>
+
+              <!-- AI 推荐理由 -->
+              <div v-if="r.aiReason" class="rc-reason">
+                <span class="rc-reason-icon">💡</span>
+                <span>{{ r.aiReason }}</span>
+              </div>
+
+              <!-- 技能标签 -->
+              <div class="rc-skills">
+                <span v-for="s in r.matchedSkills?.slice(0, 4)" :key="'m'+s" class="rc-tag rc-tag-match">✅ {{ s }}</span>
+                <span v-for="s in r.missingSkills?.slice(0, 3)" :key="'g'+s" class="rc-tag rc-tag-gap">⚠ {{ s }}</span>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- 左右导航箭头 -->
+        <button v-if="canScrollLeft" class="rec-nav rec-nav-left" @click.stop="scrollCards(-1)">‹</button>
+        <button v-if="canScrollRight" class="rec-nav rec-nav-right" @click.stop="scrollCards(1)">›</button>
       </div>
+
+      <!-- 指示点 -->
+      <div v-if="recommendResult?.recommendations?.length > 1" class="rec-dots">
+        <span v-for="(r, i) in recommendResult.recommendations" :key="'d'+r.jobId"
+          class="rec-dot" :class="{ active: activeCardIndex === i }"
+          @click="scrollToCard(i)"
+        />
+      </div>
+
       <VEmpty v-else-if="recommendResult && !recommendResult.recommendations?.length" title="暂无推荐" description="请先完善在线简历" emoji="📭" />
       <VBtn v-else variant="filled" color="purple" size="sm" @click="loadRecommendJobs" :loading="jobsLoading">查看推荐岗位</VBtn>
     </div>
@@ -149,6 +210,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { updateProfile } from '@/api/auth'
+import { request } from '@/utils/request'
 import { getRecommendJobs, getCareerPath } from '@/api/graph'
 import { ElMessage } from 'element-plus'
 import VBtn from '@/components/ui/VBtn.vue'
@@ -167,18 +229,58 @@ const form = reactive({
 
 const jobsLoading = ref(false)
 const recommendResult = ref<any>(null)
+const trackRef = ref<HTMLElement | null>(null)
+const trackWrapper = ref<HTMLElement | null>(null)
+const activeCardIndex = ref(0)
+const canScrollLeft = ref(false)
+const canScrollRight = ref(false)
 const careerLoading = ref(false)
 const selectedJobId = ref<number | null>(null)
 const careerResult = ref<any>(null)
 
-const uploadHeaders = computed(() => ({ Authorization: `Bearer ${userStore.token}` }))
+const uploadLoading = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const triggerFileInput = () => { fileInputRef.value?.click() }
 const getCandidateId = () => (userStore.userInfo as any)?.candidateId || (userStore.userInfo as any)?.userId
+
+const onTrackScroll = () => {
+  const track = trackRef.value
+  if (!track) return
+  const cardW = track.querySelector('.recommend-card')?.clientWidth || 300
+  const idx = Math.round(track.scrollLeft / (cardW + 16))
+  activeCardIndex.value = Math.max(0, idx)
+  canScrollLeft.value = track.scrollLeft > 10
+  canScrollRight.value = track.scrollLeft < track.scrollWidth - track.clientWidth - 10
+}
+
+const scrollCards = (dir: number) => {
+  const track = trackRef.value
+  if (!track) return
+  const cardW = (track.querySelector('.recommend-card')?.clientWidth || 300) + 16
+  track.scrollBy({ left: cardW * dir, behavior: 'smooth' })
+}
+
+const scrollToCard = (i: number) => {
+  const track = trackRef.value
+  if (!track) return
+  const cardW = (track.querySelector('.recommend-card')?.clientWidth || 300) + 16
+  track.scrollTo({ left: cardW * i, behavior: 'smooth' })
+}
 
 const loadRecommendJobs = async () => {
   jobsLoading.value = true
-  try { const res = await getRecommendJobs(getCandidateId()) as any; recommendResult.value = res.data || res }
-  catch { ElMessage.warning('岗位推荐暂不可用') }
-  finally { jobsLoading.value = false }
+  try {
+    const res = await getRecommendJobs(getCandidateId()) as any
+    // request 拦截器已解包 data 字段
+    recommendResult.value = res
+  } catch { ElMessage.warning('岗位推荐暂不可用') }
+  finally {
+    jobsLoading.value = false
+    // 加载完成后检查滚动状态
+    setTimeout(() => {
+      onTrackScroll()
+    }, 300)
+  }
 }
 
 const loadCareerPath = async () => {
@@ -189,28 +291,124 @@ const loadCareerPath = async () => {
   finally { careerLoading.value = false }
 }
 
-const handleUploadSuccess = (response: any) => {
-  if (response.code === 200 && response.data?.url) { form.resumeUrl = response.data.url; ElMessage.success('简历上传成功') }
-  else { form.resumeUrl = `/uploads/${Date.now()}.pdf`; ElMessage.success('简历已接收') }
-}
-const handleUploadError = () => ElMessage.warning('上传失败，可手动填写在线简历代替')
-const beforeUpload = (file: File) => {
-  const ok = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)
-  if (!ok) { ElMessage.error('仅支持 PDF 和 Word 格式'); return false }
-  return true
+const handleFileSelect = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  // Validate type
+  const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+  if (!validTypes.includes(file.type)) {
+    ElMessage.error('仅支持 PDF 和 Word 格式')
+    input.value = ''
+    return
+  }
+
+  // Validate size (10MB)
+  if (file.size > 15 * 1024 * 1024) {
+    ElMessage.error('文件大小不能超过 15MB')
+    input.value = ''
+    return
+  }
+
+  // Read as base64
+  uploadLoading.value = true
+  console.log('[上传] 开始读取文件:', file.name, file.size, 'bytes')
+  try {
+    const base64 = await readFileAsBase64(file)
+    console.log('[上传] base64 编码完成, 长度:', base64.length)
+    console.log('[上传] 发送请求...')
+    const res = await request.post<any>('/auth/upload-resume', { fileBase64: base64, fileName: file.name })
+    console.log('[上传] 响应:', res)
+    if (res.url) {
+      form.resumeUrl = res.url
+      // 同步提取的文本到在线简历
+      if (res.resumeContent) {
+        form.resumeContent = res.resumeContent
+      }
+
+      // 立即保存到后端，防止刷新丢失
+      try {
+        console.log('[上传] 开始保存到后端...', { resumeUrl: res.url, resumeContent: res.resumeContent })
+        const updateRes = await updateProfile({
+          resumeUrl: res.url,
+          resumeContent: res.resumeContent || undefined,
+        })
+        console.log('[上传] 保存到后端成功:', updateRes)
+        // 保存后立即刷新用户信息，确保 store 和表单同步
+        console.log('[上传] 刷新用户信息...')
+        await userStore.fetchUserInfo()
+        console.log('[上传] 刷新后 userInfo:', userStore.userInfo)
+        syncUserInfoToForm()
+        console.log('[上传] 表单同步后:', { resumeUrl: form.resumeUrl, resumeContent: form.resumeContent?.substring(0, 50) })
+        ElMessage.success('简历上传成功，已自动保存')
+      } catch (err: any) {
+        console.error('自动保存失败:', err)
+        ElMessage.warning('简历已上传，但保存失败: ' + (err?.response?.data?.message || err?.message || '网络错误，请手动点击保存'))
+      }
+    } else {
+      ElMessage.error((res as any).message || '上传失败')
+    }
+  } catch (err: any) {
+    console.error('[上传] 失败:', err)
+    ElMessage.error('上传失败: ' + (err.message || '网络错误'))
+  } finally {
+    uploadLoading.value = false
+    input.value = ''
+  }
 }
 
-onMounted(() => {
+const readFileAsBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1] || reader.result as string)
+    reader.onerror = () => reject(new Error('文件读取失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+// 从 store 同步用户信息到表单（不覆盖已编辑的值）
+function syncUserInfoToForm() {
   const info = userStore.userInfo
-  if (info) Object.assign(form, { username: info.username || '', realName: info.realName || '', phone: info.phone || '', email: info.email || '', education: (info as any).education || '', workYears: (info as any).workYears, resumeContent: (info as any).resumeContent || '', resumeUrl: (info as any).resumeUrl || '' })
+  if (!info) return
+  form.username = info.username || ''
+  form.realName = info.realName || ''
+  form.phone = info.phone || ''
+  form.email = info.email || ''
+  form.education = (info as any).education || ''
+  form.workYears = (info as any).workYears ?? 0
+  form.resumeContent = (info as any).resumeContent || ''
+  form.resumeUrl = (info as any).resumeUrl || ''
+}
+
+// 页面加载时拉取最新数据
+onMounted(async () => {
+  if (userStore.isLoggedIn) {
+    try {
+      await userStore.fetchUserInfo()
+      syncUserInfoToForm()
+    } catch (err: any) {
+      console.error('加载用户信息失败:', err)
+      ElMessage.warning('加载个人资料失败，请刷新重试')
+    }
+  }
 })
 
 const handleSave = async () => {
   saving.value = true
   try {
-    await updateProfile({ realName: form.realName, phone: form.phone, email: form.email, education: form.education, workYears: form.workYears, resumeContent: form.resumeContent, resumeUrl: form.resumeUrl })
-    await userStore.fetchUserInfo(); ElMessage.success('保存成功')
-  } catch (error: any) { if (error.response?.data?.message) ElMessage.error(error.response.data.message) }
+    await updateProfile({
+      realName: form.realName, phone: form.phone, email: form.email,
+      education: form.education, workYears: form.workYears,
+      resumeContent: form.resumeContent, resumeUrl: form.resumeUrl
+    })
+    await userStore.fetchUserInfo()
+    syncUserInfoToForm()
+    ElMessage.success('保存成功')
+  } catch (error: any) {
+    const msg = error?.response?.data?.message || error?.message || '保存失败'
+    ElMessage.error(msg)
+  }
   finally { saving.value = false }
 }
 </script>
@@ -280,24 +478,84 @@ const handleSave = async () => {
   display: flex; align-items: center; gap: 12px; padding: 16px;
   border: 2px dashed var(--color-border); border-radius: 14px;
   font-size: 14px; color: var(--color-text-secondary);
+  &.uploading { opacity: 0.6; pointer-events: none; }
 }
 .ua-icon { font-size: 24px; }
 .upload-hint { font-size: 12px; color: var(--color-text-muted); margin-top: 8px; }
 
 // 推荐岗位
-.recommend-list { display: flex; flex-direction: column; gap: 8px; }
-.recommend-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 14px 16px; border-radius: 14px; cursor: pointer;
-  background: var(--color-bg); transition: all 0.2s var(--ease-bounce);
-  &:hover { background: var(--color-primary-bg); transform: translateX(4px); }
-}
-.ri-left { h4 { margin: 0 0 4px; font-size: 15px; } }
-.ri-meta { font-size: 12px; color: var(--color-text-muted); }
-.ri-right { display: flex; align-items: center; gap: 10px; }
-.ri-match { font-size: 22px; font-weight: 800; }
+// 推荐岗位 — 横向卡片滑动
+.recommend-section { overflow: visible; }
+.recommend-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.recommend-count { font-size: 13px; color: var(--color-text-muted); }
 
-// 职业路径
+.recommend-track-wrapper { position: relative; margin: 0 -4px; }
+.recommend-track {
+  display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory;
+  padding: 4px 4px 8px; scroll-behavior: smooth;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.recommend-card {
+  flex: 0 0 280px; scroll-snap-align: start;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 20px; padding: 20px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.03), inset 0 1px 0 rgba(255,255,255,.6);
+  transition: all 0.25s;
+  &:hover { border-color: var(--color-primary-light); box-shadow: 0 4px 16px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.8); transform: translateY(-2px); }
+  &.is-active { border-color: var(--color-primary); }
+}
+
+.rc-ring-wrap { text-align: center; margin-bottom: 14px; }
+.rc-ring { width: 80px; height: 80px; display: inline-block; }
+.rc-ring-fill { transition: stroke-dasharray 0.8s ease; }
+.rc-ring-num { font-size: 20px; font-weight: 800; fill: var(--color-text); }
+.rc-ring-label { font-size: 10px; fill: var(--color-text-muted); }
+
+.rc-info { text-align: center; }
+.rc-title { margin: 0 0 4px; font-size: 16px; font-weight: 700; color: var(--color-text); }
+.rc-meta { font-size: 12px; color: var(--color-text-muted); margin-bottom: 6px; }
+.rc-dot { margin: 0 4px; }
+.rc-salary { font-size: 13px; color: var(--color-accent-coral); font-weight: 600; margin-bottom: 10px; }
+.rc-reason {
+  display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px;
+  background: var(--color-bg); border-radius: 12px;
+  margin-bottom: 12px; font-size: 13px; color: var(--color-text-secondary); line-height: 1.5;
+  text-align: left;
+}
+.rc-reason-icon { flex-shrink: 0; font-size: 16px; }
+.rc-skills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.rc-tag {
+  padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;
+}
+.rc-tag-match {
+  background: #EFF5EC; color: #6B8B5E;
+}
+.rc-tag-gap {
+  background: #FFF3EB; color: #B08040;
+}
+
+.rec-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  color: var(--color-text); font-size: 22px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  transition: all 0.2s;
+  &:hover { background: var(--color-bg); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+}
+.rec-nav-left { left: -14px; }
+.rec-nav-right { right: -14px; }
+
+.rec-dots { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+.rec-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-border); cursor: pointer; transition: all 0.3s;
+  &.active { background: var(--color-primary); width: 24px; border-radius: 4px; }
+}
+
 .career-select { display: flex; gap: 10px; }
 .career-result { margin-top: 12px; }
 

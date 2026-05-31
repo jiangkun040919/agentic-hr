@@ -27,7 +27,6 @@ import AIInterviewManagement from '@/views/admin/AIInterviewManagement.vue'
 import InterviewManagement from '@/views/admin/InterviewManagement.vue'
 import Profile from '@/views/admin/Profile.vue'
 import CommonInterviewerSetting from '@/views/admin/CommonInterviewerSetting.vue'
-import BenchmarkDashboard from '@/views/admin/BenchmarkDashboard.vue'
 import CompliancePage from '@/views/admin/CompliancePage.vue'
 
 // 知识图谱
@@ -94,7 +93,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'ai-interviews/:sessionId', name: 'AIInterviewDetail', component: AIInterviewManagement, meta: { title: 'AI面试详情', requiresAuth: true, role: 'hr' } },
       { path: 'profile', name: 'Profile', component: Profile, meta: { title: '个人中心', requiresAuth: true } },
       { path: 'interviewer-settings', name: 'CommonInterviewerSetting', component: CommonInterviewerSetting, meta: { title: '常用面试官设置', requiresAuth: true, role: 'hr' } },
-      { path: 'benchmark', name: 'BenchmarkDashboard', component: BenchmarkDashboard, meta: { title: '准确率评测', requiresAuth: true, role: 'hr' } },
       { path: 'compliance', name: 'CompliancePage', component: CompliancePage, meta: { title: 'AI合规', requiresAuth: true, role: 'hr' } },
       { path: 'seed-templates', redirect: '/admin/jobs' },
       { path: 'discovered-jobs', redirect: '/admin/jobs' },

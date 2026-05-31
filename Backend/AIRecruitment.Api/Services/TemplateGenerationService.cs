@@ -270,16 +270,24 @@ JD描述: {rawJd ?? "（缺失）"}
         var json = await CallMiniMaxAsync(systemPrompt, userPrompt);
         _logger.LogInformation($"[LLM提取] 模版={tpl.Name}, 返回长度={json?.Length ?? 0}");
 
+        if (string.IsNullOrWhiteSpace(json))
+            throw new Exception("AI 服务返回空内容，请稍后重试");
+
         List<GeneratedJob> generated;
         try
         {
-            generated = JsonConvert.DeserializeObject<List<GeneratedJob>>(json) ?? new();
+            // 尝试多种清理方式
+            var cleaned = CleanJsonResponse(json);
+            generated = JsonConvert.DeserializeObject<List<GeneratedJob>>(cleaned) ?? new();
         }
-        catch
+        catch (Exception ex)
         {
-            _logger.LogWarning($"[LLM提取] JSON解析失败，降级");
-            return new();
+            _logger.LogError(ex, $"[LLM提取] JSON解析失败，原始返回(前500字): {json?[..Math.Min(json.Length, 500)]}");
+            throw new Exception($"AI 返回格式异常，请重试。如持续失败请联系管理员。");
         }
+
+        if (generated.Count == 0)
+            throw new Exception("AI 未生成有效岗位数据，请检查模版内容是否完整");
 
         var jobs = new List<Job>();
         foreach (var gj in generated.Take(remaining))

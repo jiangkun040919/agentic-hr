@@ -22,8 +22,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        // 删除旧库避免 FK 约束冲突（1785 错误）
-        db.Database.EnsureDeleted();
+        // 保留现有数据库，仅确保表结构存在
         db.Database.EnsureCreated();
 
         // 手动补列（EnsureCreated 不会给现有表加新列）

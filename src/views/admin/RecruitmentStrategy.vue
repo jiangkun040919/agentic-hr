@@ -229,8 +229,21 @@ const loadFunnel = async () => {
   try {
     const res: any = await request.get('/stat/funnel')
     const d = res?.data || res || {}
-    const stages = d.stages || d
-    if (Array.isArray(stages)) {
+    // 后端返回扁平对象 {applied, screened, interviewed, hired}
+    if (typeof d.applied === 'number') {
+      funnelStages.value[0].count = d.applied || 0
+      funnelStages.value[1].count = d.screened || 0
+      funnelStages.value[2].count = d.interviewed || 0
+      funnelStages.value[3].count = d.hired || 0
+      // 计算转化率
+      const total = d.applied || 1
+      funnelStages.value.forEach((fs, i) => {
+        if (i === 0) fs.rate = '100%'
+        else fs.rate = `${Math.round((funnelStages.value[i].count / total) * 100)}%`
+        fs.rateClass = 'up'
+      })
+    } else if (Array.isArray(d.stages || d)) {
+      const stages = d.stages || d
       funnelStages.value.forEach((fs, i) => {
         const match = stages.find((s: any) => s.status === fs.status || s.label === fs.label)
         if (match) {

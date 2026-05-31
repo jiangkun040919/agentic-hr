@@ -13,18 +13,18 @@
           <span>公平性综合评分</span>
         </div>
         <div class="cpo-score">
-          <el-progress type="dashboard" :percentage="fairnessData.overallScore" :color="scoreColor(fairnessData.overallScore)">
+          <el-progress type="dashboard" :percentage="auditReport?.overallRating?.score ?? 0" :color="scoreColor(auditReport?.overallRating?.score ?? 0)">
             <template #default="{ percentage }">
               <span class="cpo-score-num">{{ percentage }}</span>
               <span class="cpo-score-unit">分</span>
             </template>
           </el-progress>
         </div>
-        <div class="cpo-time">最近审计: {{ formatTime(fairnessData.auditTime) }}</div>
+        <div class="cpo-time">最近审计: {{ formatTime(auditReport?.generatedAt ?? "") }}</div>
       </div>
 
       <!-- 各维度卡片 -->
-      <div class="cp-dim-card card-tech" v-for="(dim, i) in fairnessData.dimensions" :key="i">
+      <div class="cp-dim-card card-tech" v-for="(dim, i) in dimensions" :key="i">
         <div class="cpd-header">
           <div class="cpd-icon" :style="{ background: dimColor(dim.status) }">
             <el-icon :size="16" color="#fff"><component :is="iconMap[dim.icon] || 'Setting'" /></el-icon>
@@ -48,30 +48,38 @@
     <div class="cp-section">
       <div class="cp-section-header">
         <h3><el-icon color="var(--color-accent)"><Notebook /></el-icon> AI决策日志</h3>
-        <el-button type="primary" size="small" @click="refreshLogs" :loading="logLoading">
+        <el-button type="primary" size="small" @click="loadAudit" :loading="auditLoading">
           <el-icon><Refresh /></el-icon>刷新
         </el-button>
       </div>
       <div class="content-card" style="overflow: hidden;">
-        <el-table :data="fairnessData.aiDecisions" stripe max-height="360">
-          <el-table-column prop="id" label="ID" width="60" />
-          <el-table-column prop="type" label="决策类型" width="110">
+        <el-table :data="auditReport?.scoreDistribution?.distribution ?? []" stripe max-height="360">
+          <el-table-column prop="status" label="状态" width="80" />
+          <el-table-column prop="label" label="阶段" width="120" />
+          <el-table-column prop="count" label="人数" width="100">
             <template #default="{ row }">
-              <el-tag :type="typeTag(row.type)" size="small">{{ row.type }}</el-tag>
+              <span style="font-weight: bold">{{ row.count }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="candidate" label="候选人" width="90" />
-          <el-table-column prop="job" label="岗位" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="score" label="评分" width="80">
+          <el-table-column prop="percentage" label="占比" width="100">
             <template #default="{ row }">
-              <span :style="{ color: scoreTextColor(row.score), fontWeight: 'bold' }">{{ row.score }}</span>
+              <el-progress :percentage="row.percentage" :stroke-width="8" :show-text="true" />
             </template>
-          </el-table-column>
-          <el-table-column prop="reason" label="决策理由" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="timestamp" label="时间" width="160">
-            <template #default="{ row }">{{ formatTime(row.timestamp) }}</template>
           </el-table-column>
         </el-table>
+      </div>
+    </div>
+
+    <!-- ═══ 改进建议 ═══ -->
+    <div v-if="auditReport?.recommendations?.length" class="cp-section">
+      <div class="cp-section-header">
+        <h3><el-icon color="var(--color-gold)"><Star /></el-icon> 改进建议</h3>
+      </div>
+      <div class="cp-rights-card content-card">
+        <div v-for="(rec, i) in auditReport.recommendations" :key="i" class="cpr-item">
+          <div class="cpr-num">{{ i + 1 }}</div>
+          <div class="cpr-text">{{ rec }}</div>
+        </div>
       </div>
     </div>
 
@@ -81,7 +89,7 @@
         <h3><el-icon color="var(--color-gold)"><Document /></el-icon> 数据来源声明</h3>
       </div>
       <div class="cp-source-grid">
-        <div class="cp-source-card content-card" v-for="(ds, i) in fairnessData.dataSources" :key="i">
+        <div class="cp-source-card content-card" v-for="(ds, i) in dataSources" :key="i">
           <div class="cps-name">
             <el-icon color="var(--color-primary)"><DataBoard /></el-icon>
             {{ ds.name }}
@@ -108,89 +116,77 @@
         <h3><el-icon color="var(--color-rose)"><Lock /></el-icon> 您的权利</h3>
       </div>
       <div class="cp-rights-card content-card">
-        <div v-for="(right, i) in fairnessData.userRights" :key="i" class="cpr-item">
+        <div v-for="(right, i) in userRights" :key="i" class="cpr-item">
           <div class="cpr-num">{{ i + 1 }}</div>
           <div class="cpr-text">{{ right }}</div>
         </div>
       </div>
     </div>
 
-    <!-- ═══ 合规声明 ═══ -->
-    <div class="cp-footer-note content-card">
-      <el-icon color="var(--color-text-muted)" :size="16"><InfoFilled /></el-icon>
-      <span>本系统遵循《个人信息保护法》《数据安全法》相关规定，AI决策过程全程可追溯。系统每季度自动进行公平性审计，审计结果对监管机构及用户公开。如有疑问请联系合规团队：compliance@ai-recruit.com</span>
-    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import dayjs from 'dayjs'
-import { getFairnessStaticData, type FairnessStaticData } from '@/api/fairness'
+import { runFairnessAudit, type FairnessAuditReport, type GroupStat } from '@/api/fairness'
 import {
   CircleCheckFilled, Notebook, Refresh, Document, DataBoard, Lock, InfoFilled, School, Star, Location, User, Calendar, Setting
 } from '@element-plus/icons-vue'
 
-const logLoading = ref(false)
+const auditLoading = ref(false)
+const auditReport = ref<FairnessAuditReport | null>(null)
+const auditError = ref('')
 
-const iconMap: Record<string, any> = {
-  School, Star, Location, User, Calendar, Setting,
-}
+const iconMap: Record<string, any> = { School, Star, Location, User, Calendar, Setting }
 
-const fairnessData = reactive<FairnessStaticData>({
-  auditTime: '',
-  overallScore: 0,
-  dimensions: [],
-  aiDecisions: [],
-  dataSources: [],
-  userRights: [],
+// 从审计报告映射维度卡片
+const dimensions = computed(() => {
+  if (!auditReport.value) return []
+  const r = auditReport.value
+  return [
+    { name: '学历偏差', score: Math.max(0, 100 - r.educationBias.biasRatio * 30), status: r.educationBias.isBiased ? 'warning' : 'good' as const, detail: r.educationBias.summary, icon: 'School', groups: r.educationBias.groups },
+    { name: '经验偏差', score: Math.max(0, 100 - r.experienceBias.biasRatio * 30), status: r.experienceBias.isBiased ? 'warning' : 'good' as const, detail: r.experienceBias.summary, icon: 'Star', groups: r.experienceBias.groups },
+    { name: '地域偏差', score: Math.max(0, 100 - r.locationBias.biasRatio * 30), status: r.locationBias.isBiased ? 'warning' : 'good' as const, detail: r.locationBias.summary, icon: 'Location', groups: r.locationBias.groups },
+    { name: '评分分布', score: Math.min(100, Math.max(0, 100 - Math.abs(r.scoreDistribution.averageStatus - 2) * 15)), status: 'good' as const, detail: `共${r.scoreDistribution.totalCount}条投递，平均状态${r.scoreDistribution.averageStatus}`, icon: 'Calendar', groups: [] },
+  ]
 })
 
-const scoreColor = (score: number) => {
-  if (score >= 85) return '#7A8B5E'
-  if (score >= 70) return '#C4945A'
-  return '#B8605A'
-}
+const scoreColor = (score: number) => score >= 85 ? '#7A8B5E' : score >= 70 ? '#C4945A' : '#B8605A'
+const dimColor = (status: string) => status === 'good' ? 'var(--color-success)' : status === 'warning' ? 'var(--color-warning)' : 'var(--color-danger)'
+const formatTime = (t: string) => t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '--'
 
-const dimColor = (status: string) => {
-  if (status === 'good') return 'var(--color-success)'
-  if (status === 'warning') return 'var(--color-warning)'
-  return 'var(--color-danger)'
-}
+// 数据来源声明（静态）
+const dataSources = [
+  { name: '投递记录', source: '候选人投递简历时填写的表单信息', purpose: '候选人技能、教育、工作经历提取', storage: '加密存储，保留至招聘流程结束' },
+  { name: 'AI匹配评分', source: 'MiniMax API + 本地规则引擎', purpose: '候选人与岗位匹配度评估', storage: '评分结果存储30天' },
+  { name: '知识图谱', source: 'Neo4j图数据库', purpose: '技能关系推理与反幻觉验证', storage: '永久存储（脱敏后）' },
+  { name: '公平性审计', source: '系统自动统计分析', purpose: '检测招聘各环节的偏差指标', storage: '汇总报告存储90天' },
+]
 
-const scoreTextColor = (score: number) => {
-  if (score >= 85) return 'var(--color-success)'
-  if (score >= 70) return 'var(--color-warning)'
-  return 'var(--color-danger)'
-}
+const userRights = [
+  '您有权查看AI系统对您简历的评分依据',
+  '您有权要求人工复核AI的筛选决定',
+  '您有权请求删除个人数据（部分数据受法律法规保护）',
+  '您有权对不公平的筛选结果提出申诉',
+  '系统每季度进行一次公平性审计，结果公开可查',
+]
 
-const typeTag = (type: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
-  const map: Record<string, any> = {
-    '简历筛选': 'primary', '匹配评分': 'success', '自动推荐': 'warning', '面试评估': 'info',
+const loadAudit = async () => {
+  auditLoading.value = true
+  auditError.value = ''
+  try {
+    const res = await runFairnessAudit() as any
+    auditReport.value = res
+  } catch (e: any) {
+    auditError.value = e?.message || '审计数据加载失败'
+  } finally {
+    auditLoading.value = false
   }
-  return map[type] || 'info'
 }
 
-const formatTime = (t: string) => {
-  if (!t) return '--'
-  return dayjs(t).format('YYYY-MM-DD HH:mm:ss')
-}
-
-const refreshLogs = async () => {
-  logLoading.value = true
-  try {
-    const data = await getFairnessStaticData()
-    fairnessData.aiDecisions = data.aiDecisions
-  } catch { /* use existing */ }
-  finally { logLoading.value = false }
-}
-
-onMounted(async () => {
-  try {
-    const data = await getFairnessStaticData()
-    Object.assign(fairnessData, data)
-  } catch { /* fallback already loaded */ }
-})
+onMounted(loadAudit)
 </script>
 
 <style scoped lang="scss">

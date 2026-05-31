@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using AIRecruitment.Api.Models.DTOs;
 using AIRecruitment.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace AIRecruitment.Api.Controllers;
 
@@ -103,6 +104,54 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             return BadRequest(new { code = 400, message = ex.Message });
+        }
+    }
+
+    /// <summary>上传简历文件（通用 — 不绑定投递记录）</summary>
+    [HttpPost("upload-resume")]
+    [Authorize]
+    public async Task<IActionResult> UploadResume([FromBody] UploadResumeRequest request)
+    {
+        try
+        {
+            var fileName = request.FileName ?? "resume.pdf";
+            var ext = Path.GetExtension(fileName).ToLowerInvariant();
+            if (ext != ".pdf" && ext != ".docx" && ext != ".doc")
+                return Ok(new { code = 400, message = "仅支持 PDF (.pdf) 和 Word (.docx/.doc) 格式" });
+
+            if (request.FileBase64.Length > 20 * 1024 * 1024)
+                return Ok(new { code = 400, message = "文件大小不能超过 15MB" });
+
+            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "resumes");
+            Directory.CreateDirectory(uploadsDir);
+
+            var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var safeName = $"{userId}_{DateTime.Now:yyyyMMddHHmmss}_{fileName}";
+            var filePath = Path.Combine(uploadsDir, safeName);
+
+            var fileBytes = Convert.FromBase64String(request.FileBase64);
+            await System.IO.File.WriteAllBytesAsync(filePath, fileBytes);
+
+            // 提取文本内容，同步到在线简历
+            string? extractedText = null;
+            try
+            {
+                var pdfService = HttpContext.RequestServices.GetRequiredService<IPdfExtractService>();
+                var (text, _) = await pdfService.ExtractBase64Async(request.FileBase64, fileName, userId);
+                extractedText = !string.IsNullOrWhiteSpace(text) ? text : null;
+            }
+            catch { /* 提取失败不影响上传 */ }
+
+            var url = $"/uploads/resumes/{safeName}";
+            return Ok(new { code = 200, message = "上传成功", data = new { url, resumeContent = extractedText } });
+        }
+        catch (FormatException)
+        {
+            return Ok(new { code = 400, message = "文件数据格式错误" });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { code = 500, message = ex.Message });
         }
     }
 
