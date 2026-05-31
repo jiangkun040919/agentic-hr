@@ -126,28 +126,28 @@ const summary = ref('')
 const ndcg5 = ref<Record<string, number>>({})
 const avgRank = ref<Record<string, number>>({})
 
-const commonTextStyle = { color: '#A8A8B3', fontSize: 12 }
-const commonAxisLine = { lineStyle: { color: '#2A2A35' } }
-const commonSplitLine = { lineStyle: { color: '#22222D' } }
+const commonTextStyle = { color: '#A09888', fontSize: 12 }
+const commonAxisLine = { lineStyle: { color: '#3D3830' } }
+const commonSplitLine = { lineStyle: { color: '#302B25' } }
 
 const initBarChart = () => {
   if (!barRef.value) return
   barChart = echarts.init(barRef.value)
   const data = methods.value
   barChart.setOption({
-    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#2A2A35', textStyle: { color: '#E8E8ED' } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#3D3830', textStyle: { color: '#E8E0D5' } },
     legend: { top: 10, textStyle: commonTextStyle },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '50px', containLabel: true },
     xAxis: { type: 'category', data: data.map(m => m.name), axisLabel: { ...commonTextStyle, rotate: 15 }, axisLine: commonAxisLine },
     yAxis: { type: 'value', name: '%', max: 100, axisLabel: commonTextStyle, splitLine: commonSplitLine },
     series: [
       { name: '准确率', type: 'bar', data: data.map(m => m.accuracy), itemStyle: { borderRadius: [4,4,0,0] },
-        label: { show: true, position: 'top', color: '#E8E8ED', fontSize: 12, fontWeight: 600 } },
+        label: { show: true, position: 'top', color: '#E8E0D5', fontSize: 12, fontWeight: 600 } },
       { name: '精确率', type: 'bar', data: data.map(m => m.precision), itemStyle: { borderRadius: [4,4,0,0] } },
       { name: '召回率', type: 'bar', data: data.map(m => m.recall), itemStyle: { borderRadius: [4,4,0,0] } },
       { name: 'F1', type: 'bar', data: data.map(m => m.f1), itemStyle: { borderRadius: [4,4,0,0] } },
     ],
-    color: ['#6C6FF7', '#22C5DE', '#F0A500', '#2DD4A3'],
+    color: ['#C4A96A', '#8A9BA8', '#F0A500', '#7A8B5E'],
   })
 }
 
@@ -161,7 +161,7 @@ const initHitChart = () => {
     return ndcg5.value[key] ? Math.round(ndcg5.value[key] * 100) : 0
   })
   hitChart.setOption({
-    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#2A2A35', textStyle: { color: '#E8E8ED' } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#3D3830', textStyle: { color: '#E8E0D5' } },
     legend: { top: 10, textStyle: commonTextStyle },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '50px', containLabel: true },
     xAxis: { type: 'category', data: names, axisLabel: { ...commonTextStyle, rotate: 15 }, axisLine: commonAxisLine },
@@ -169,8 +169,8 @@ const initHitChart = () => {
     series: [
       { name: 'Top-5命中率(%)', type: 'bar', data: top5Vals, itemStyle: { color: '#F0A500', borderRadius: [4,4,0,0] },
         label: { show: true, position: 'top', color: '#F0A500', fontSize: 12 } },
-      { name: 'NDCG@5', type: 'line', data: ndcgVals, lineStyle: { color: '#F472B6', width: 2 }, itemStyle: { color: '#F472B6' },
-        label: { show: true, position: 'top', color: '#F472B6', fontSize: 11 } },
+      { name: 'NDCG@5', type: 'line', data: ndcgVals, lineStyle: { color: '#C08070', width: 2 }, itemStyle: { color: '#C08070' },
+        label: { show: true, position: 'top', color: '#C08070', fontSize: 11 } },
     ],
   })
 }
@@ -181,7 +181,7 @@ const initRankChart = () => {
   const names = methods.value.map(m => m.name)
   const vals = names.map(n => avgRank.value[methods.value.find(m => m.name === n)?.key || ''] || 0)
   rankChart.setOption({
-    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#2A2A35', textStyle: { color: '#E8E8ED' } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#3D3830', textStyle: { color: '#E8E0D5' } },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '20px', containLabel: true },
     xAxis: { type: 'category', data: names, axisLabel: { ...commonTextStyle, rotate: 15 }, axisLine: commonAxisLine },
     yAxis: { type: 'value', name: '排名', inverse: true, axisLabel: commonTextStyle, splitLine: commonSplitLine },
@@ -190,11 +190,11 @@ const initRankChart = () => {
       itemStyle: {
         borderRadius: [4,4,0,0],
         color: (params: any) => {
-          const colors = ['#6C6FF7','#8B8EF9','#A86EF7','#22C5DE']
+          const colors = ['#C4A96A','#D4B97A','#8B9A6E','#8A9BA8']
           return colors[params.dataIndex % colors.length]
         },
       },
-      label: { show: true, position: 'top', color: '#E8E8ED', fontSize: 14, fontWeight: 700 },
+      label: { show: true, position: 'top', color: '#E8E0D5', fontSize: 14, fontWeight: 700 },
     }],
   })
 }
@@ -204,7 +204,7 @@ const initTimeChart = () => {
   timeChart = echarts.init(timeRef.value)
   const data = methods.value
   timeChart.setOption({
-    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#2A2A35', textStyle: { color: '#E8E8ED' } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#3D3830', textStyle: { color: '#E8E0D5' } },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '20px', containLabel: true },
     xAxis: { type: 'category', data: data.map(m => m.name), axisLabel: { ...commonTextStyle, rotate: 15 }, axisLine: commonAxisLine },
     yAxis: { type: 'value', name: '秒', axisLabel: commonTextStyle, splitLine: commonSplitLine },
@@ -213,11 +213,11 @@ const initTimeChart = () => {
       itemStyle: {
         borderRadius: [4,4,0,0],
         color: (params: any) => {
-          const colors = ['#2DD4A3','#F5A623','#F0A500','#F472B6']
+          const colors = ['#7A8B5E','#C4945A','#F0A500','#C08070']
           return colors[params.dataIndex % colors.length]
         },
       },
-      label: { show: true, position: 'top', color: '#E8E8ED', fontSize: 12, formatter: '{c}s' },
+      label: { show: true, position: 'top', color: '#E8E0D5', fontSize: 12, formatter: '{c}s' },
     }],
   })
 }

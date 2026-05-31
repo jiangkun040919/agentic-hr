@@ -2,9 +2,10 @@
   <button
     class="v-chip"
     :class="[
-      `v-chip--${color}`,
-      { 'v-chip--active': active, 'v-chip--sm': size === 'sm' }
+      customColor ? '' : `v-chip--${color}`,
+      { 'v-chip--active': active, 'v-chip--sm': size === 'sm', 'v-chip--custom': !!customColor }
     ]"
+    :style="customColor ? `background:${customColor};border-color:${customColor};color:#fff;` : ''"
     @click="$emit('click', $event)"
   >
     <span v-if="emoji" class="v-chip__emoji">{{ emoji }}</span>
@@ -16,6 +17,7 @@
 <script setup lang="ts">
 defineProps({
   color: { type: String as () => 'coral' | 'mint' | 'purple' | 'sunny' | 'sky' | 'gray', default: 'gray' },
+  customColor: String,
   active: Boolean,
   emoji: String,
   count: [Number, String],
@@ -51,6 +53,15 @@ defineEmits(['click'])
   &--active {
     border-color: transparent; color: #fff; font-weight: 600;
     .v-chip__count { background: rgba(255,255,255,0.2); color: #fff; }
+  }
+  // Custom color variant
+  &--custom {
+    font-weight: 500;
+    .v-chip__count { background: rgba(255,255,255,0.25); color: #fff; }
+    &.v-chip--active {
+      filter: brightness(1.15);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
   }
   &--active.v-chip--coral  { background: linear-gradient(135deg, var(--color-primary), #A08050); box-shadow: var(--shadow-3d-sm); color: #1C1915; .v-chip__count { background: rgba(0,0,0,0.15); color: #1C1915; } }
   &--active.v-chip--mint   { background: linear-gradient(135deg, #7A8B5E, #6B7B4E); box-shadow: var(--shadow-3d-sm); }

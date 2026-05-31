@@ -147,9 +147,9 @@ const fairnessData = reactive<FairnessStaticData>({
 })
 
 const scoreColor = (score: number) => {
-  if (score >= 85) return '#2DD4A3'
-  if (score >= 70) return '#F5A623'
-  return '#F4586D'
+  if (score >= 85) return '#7A8B5E'
+  if (score >= 70) return '#C4945A'
+  return '#B8605A'
 }
 
 const dimColor = (status: string) => {

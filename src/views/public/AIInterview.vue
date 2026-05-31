@@ -1231,7 +1231,7 @@ const getScoreColor = (score: number) => {
       align-items: center;
       justify-content: center;
       gap: 6px;
-      background: rgba(9, 9, 11, 0.85);
+      background: rgba(28, 25, 21, 0.85);
       color: var(--color-text-secondary);
       font-size: 12px;
     }
@@ -1550,7 +1550,7 @@ const getScoreColor = (score: number) => {
       &:active { transform: scale(0.97); }
 
       &.active {
-        background: linear-gradient(135deg, var(--color-primary), #E85555);
+        background: linear-gradient(135deg, var(--color-primary), #B8605A);
         box-shadow: 0 6px 24px rgba(255, 107, 107, 0.4);
       }
 

@@ -2,36 +2,72 @@
   <div class="job-list-page">
     <!-- Hero -->
     <div class="hero">
-      <div class="hero-decor" />
-      <h1 class="hero-title">发现你的<span class="gradient-text">理想岗位</span></h1>
-      <p class="hero-sub">AI 驱动的智能招聘平台 &middot; <span class="hero-count">{{ total }}</span> 个岗位开放中</p>
+      <div class="hero-left">
+        <div class="hero-decor" />
+        <h1 class="hero-title">发现你的<span class="gradient-text">理想岗位</span></h1>
+        <p class="hero-sub">AI 驱动的智能招聘平台 &middot; <span class="hero-count">{{ total }}</span> 个岗位开放中</p>
+        <div class="hero-badge">● 数据更新于 {{ updateTime }}</div>
+      </div>
+      <div class="hero-right">
+        <div class="hero-stat">
+          <div class="hs-num">{{ displayStats.jobs ?? heroStats[0].value }}</div>
+          <div class="hs-label">{{ heroStats[0].label }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hs-num">{{ displayStats.depts ?? heroStats[1].value }}</div>
+          <div class="hs-label">{{ heroStats[1].label }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hs-num">{{ displayStats.cities ?? heroStats[2].value }}</div>
+          <div class="hs-label">{{ heroStats[2].label }}</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hs-num">{{ heroStats[3].value }}</div>
+          <div class="hs-label">{{ heroStats[3].label }}</div>
+        </div>
+      </div>
     </div>
 
-    <!-- 搜索栏 -->
-    <div class="search-bar">
-      <div class="search-capsule">
-        <el-icon class="search-icon"><Search /></el-icon>
-        <input v-model="searchKeyword" placeholder="搜索岗位、技能..." class="search-input" @keyup.enter="handleSearch" />
-        <select v-model="searchDept" class="search-select" @change="handleSearch">
-          <option value="">全部部门</option>
-          <option v-for="d in deptOptions" :key="d" :value="d">{{ d }}</option>
-        </select>
-        <select v-model="searchCity" class="search-select search-select--sm" @change="handleSearch">
-          <option value="">全部城市</option>
-          <option v-for="c in cityOptions" :key="c" :value="c">{{ c }}</option>
-        </select>
-        <button class="search-btn" @click="handleSearch">搜索</button>
+    <!-- 搜索 & 热门卡片 -->
+    <div class="search-card">
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <div class="search-capsule">
+          <el-icon class="search-icon"><Search /></el-icon>
+          <input v-model="searchKeyword" placeholder="搜索岗位、技能..." class="search-input" @keyup.enter="handleSearch" />
+          <select v-model="searchDept" class="search-select" @change="handleSearch">
+            <option value="">全部部门</option>
+            <option v-for="d in deptOptions" :key="d" :value="d">{{ d }}</option>
+          </select>
+          <select v-model="searchCity" class="search-select search-select--sm" @change="handleSearch">
+            <option value="">全部城市</option>
+            <option v-for="c in cityOptions" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <button class="search-btn" @click="handleSearch">搜索</button>
+        </div>
+      </div>
+
+      <!-- 热门搜索 -->
+      <div class="hot-search">
+        <span class="hot-label">🔥 热门搜索</span>
+        <button
+          v-for="kw in hotKeywords"
+          :key="kw"
+          class="hot-tag"
+          @click="searchKeyword = kw; handleSearch()"
+        >{{ kw }}</button>
       </div>
     </div>
 
     <!-- 部门快捷入口 -->
-    <div class="dept-chips">
+    <div ref="deptChipsRef" class="dept-chips" @mousedown="onDeptChipsMouseDown">
       <VChip
         v-for="d in deptChips"
         :key="d.name"
         :emoji="d.emoji"
         :count="d.count"
-        :color="d.color"
+        :color="d.color || 'gray'"
+        :custom-color="d.customColor"
         :active="searchDept === d.name"
         @click="searchDept = searchDept === d.name ? '' : d.name; handleSearch()"
       >
@@ -114,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { request } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
@@ -128,6 +164,18 @@ const userStore = useUserStore()
 const isCandidate = ref(userStore.isCandidate)
 
 const loading = ref(false)
+const updateTime = ref(new Date().toLocaleDateString('zh-CN'))
+
+// Hero 统计数据
+const heroStats = reactive([
+  { label: '总岗位', value: 0, key: 'jobs' },
+  { label: '技术部门', value: 0, key: 'depts' },
+  { label: '热门城市', value: 0, key: 'cities' },
+  { label: '薪资范围', value: '21-44K', key: 'salary' },
+])
+const displayStats = reactive({ jobs: 0, depts: 0, cities: 0 })
+
+const hotKeywords = ['Java', 'Python', '前端', 'AI算法', '数据分析', '产品经理']
 const jobs = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -137,33 +185,45 @@ const searchKeyword = ref('')
 const searchDept = ref('')
 const searchCity = ref('')
 
-const deptOptions = ['技术部', 'AI部', '前端部', '数据部', '产品部', '架构部', '运维部', '安全部', '设计部']
+const deptOptions = ['技术部', 'AI部', '前端部', '数据部', '产品部', '架构部', '运维部', '安全部', '质量部', '移动部', '云平台部', '数据平台部', '设计部']
 const cityOptions = ['北京', '上海', '广州', '深圳', '杭州', '成都', '武汉', '南京', '西安', '苏州']
 
 const deptGradients: Record<string, string> = {
-  '技术部': 'linear-gradient(135deg, var(--color-primary), #E85555)',
-  'AI部': 'linear-gradient(135deg, #8B9A6E, #9333EA)',
-  '前端部': 'linear-gradient(135deg, #8A9BA8, #6B7B8D)',
-  '数据部': 'linear-gradient(135deg, #7A8B5E, #6B8B4E)',
-  '产品部': 'linear-gradient(135deg, var(--color-primary), #B08040)',
-  '架构部': 'linear-gradient(135deg, #C08070, #C08070)',
-  '运维部': 'linear-gradient(135deg, #8A9BA8, #7A8B5E)',
-  '安全部': 'linear-gradient(135deg, var(--color-primary), #8B9A6E)',
-  '设计部': 'linear-gradient(135deg, #C08070, var(--color-primary))',
+  '技术部': 'linear-gradient(135deg, #C4A96A, #A08848)',
+  'AI部': 'linear-gradient(135deg, #8B9A6E, #6B7A50)',
+  '前端部': 'linear-gradient(135deg, #8A9BA8, #6B7B88)',
+  '数据部': 'linear-gradient(135deg, #7A8B5E, #5A7040)',
+  '产品部': 'linear-gradient(135deg, #C4945A, #A07040)',
+  '架构部': 'linear-gradient(135deg, #B8A878, #A08848)',
+  '运维部': 'linear-gradient(135deg, #A09888, #786E60)',
+  '安全部': 'linear-gradient(135deg, #B8605A, #984840)',
+  '质量部': 'linear-gradient(135deg, #6B8B4E, #5A7040)',
+  '移动部': 'linear-gradient(135deg, #B8A878, #C4945A)',
+  '云平台部': 'linear-gradient(135deg, #9AABB8, #8A9BA8)',
+  '数据平台部': 'linear-gradient(135deg, #5A7040, #7A8B5E)',
+  '设计部': 'linear-gradient(135deg, #C08070, #C4A96A)',
 }
 
 const deptTagColors: Record<string, string> = {
-  '技术部': 'coral', 'AI部': 'purple', '前端部': 'sky', '数据部': 'mint',
-  '产品部': 'sunny', '架构部': 'coral', '运维部': 'sky', '安全部': 'coral', '设计部': 'sunny',
+  '技术部': 'coral', 'AI部': 'mint', '前端部': 'sky', '数据部': 'mint',
+  '产品部': 'sunny', '架构部': 'sunny', '运维部': 'gray', '安全部': 'coral',
+  '质量部': 'mint', '移动部': 'sunny', '云平台部': 'sky', '数据平台部': 'mint', '设计部': 'coral',
 }
 
 const deptChips = ref([
-  { name: '技术部', emoji: '💻', count: 0, color: 'coral' as const },
-  { name: 'AI部', emoji: '🤖', count: 0, color: 'purple' as const },
-  { name: '前端部', emoji: '🎨', count: 0, color: 'sky' as const },
-  { name: '数据部', emoji: '📊', count: 0, color: 'mint' as const },
-  { name: '产品部', emoji: '📱', count: 0, color: 'sunny' as const },
-  { name: '架构部', emoji: '🏗️', count: 0, color: 'coral' as const },
+  { name: '技术部', emoji: '💻', count: 0, color: '' as any, customColor: '#C4A96A' },
+  { name: 'AI部', emoji: '🤖', count: 0, color: '' as any, customColor: '#8B9A6E' },
+  { name: '前端部', emoji: '🎨', count: 0, color: '' as any, customColor: '#8A9BA8' },
+  { name: '数据部', emoji: '📊', count: 0, color: '' as any, customColor: '#7A8B5E' },
+  { name: '产品部', emoji: '📱', count: 0, color: '' as any, customColor: '#C4945A' },
+  { name: '架构部', emoji: '🏗️', count: 0, color: '' as any, customColor: '#B8A878' },
+  { name: '运维部', emoji: '⚙️', count: 0, color: '' as any, customColor: '#A09888' },
+  { name: '安全部', emoji: '🛡️', count: 0, color: '' as any, customColor: '#B8605A' },
+  { name: '质量部', emoji: '✅', count: 0, color: '' as any, customColor: '#6B8B4E' },
+  { name: '移动部', emoji: '📲', count: 0, color: '' as any, customColor: '#B8A878' },
+  { name: '云平台部', emoji: '☁️', count: 0, color: '' as any, customColor: '#9AABB8' },
+  { name: '数据平台部', emoji: '🗄️', count: 0, color: '' as any, customColor: '#5A7040' },
+  { name: '设计部', emoji: '✨', count: 0, color: '' as any, customColor: '#C08070' },
 ])
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
@@ -193,6 +253,18 @@ const timeAgo = (dateStr: string) => {
 
 const truncate = (text: string, max: number) => text.length > max ? text.slice(0, max) + '...' : text
 
+const animateCounter = (target: number, key: string, duration: number = 1500) => {
+  const start = performance.now()
+  const from = 0
+  const step = (now: number) => {
+    const progress = Math.min((now - start) / duration, 1)
+    const eased = 1 - Math.pow(1 - progress, 3)
+    displayStats[key] = Math.round(from + (target - from) * eased)
+    if (progress < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
 const fetchDeptStats = async () => {
   try {
     const res: any = await request.get('/job/dept-stats')
@@ -203,7 +275,53 @@ const fetchDeptStats = async () => {
   } catch {}
 }
 
-onMounted(() => { handleSearch(); fetchDeptStats() })
+onMounted(async () => {
+  await handleSearch()
+  await fetchDeptStats()
+  // Hero 统计数据动画
+  heroStats[0].value = total.value
+  if (total.value > 0) animateCounter(total.value, 'jobs', 1500)
+  const activeDepts = deptChips.value.filter(d => d.count > 0).length
+  heroStats[1].value = activeDepts || deptChips.value.length
+  if (heroStats[1].value > 0) animateCounter(heroStats[1].value, 'depts', 1000)
+  heroStats[2].value = cityOptions.length
+  animateCounter(cityOptions.length, 'cities', 1000)
+})
+
+// 部门 chips 鼠标拖拽横向滚动
+const deptChipsRef = ref<HTMLElement | null>(null)
+let isDragging = false, dragStartX = 0, dragScrollLeft = 0
+
+function onDeptChipsMouseDown(e: MouseEvent) {
+  const el = deptChipsRef.value
+  if (!el) return
+  isDragging = true
+  dragStartX = e.pageX - el.offsetLeft
+  dragScrollLeft = el.scrollLeft
+  el.style.cursor = 'grabbing'
+  el.style.userSelect = 'none'
+  document.addEventListener('mousemove', onDeptChipsMouseMove)
+  document.addEventListener('mouseup', onDeptChipsMouseUp)
+}
+
+function onDeptChipsMouseMove(e: MouseEvent) {
+  const el = deptChipsRef.value
+  if (!isDragging || !el) return
+  e.preventDefault()
+  const x = e.pageX - el.offsetLeft
+  el.scrollLeft = dragScrollLeft - (x - dragStartX) * 1.5
+}
+
+function onDeptChipsMouseUp() {
+  const el = deptChipsRef.value
+  isDragging = false
+  if (el) {
+    el.style.cursor = 'grab'
+    el.style.userSelect = ''
+  }
+  document.removeEventListener('mousemove', onDeptChipsMouseMove)
+  document.removeEventListener('mouseup', onDeptChipsMouseUp)
+}
 </script>
 
 <style scoped lang="scss">
@@ -211,20 +329,63 @@ onMounted(() => { handleSearch(); fetchDeptStats() })
 
 // Hero
 .hero {
-  text-align: center; padding: 48px 0 36px; position: relative;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 36px 32px; position: relative;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #16162e 100%);
+  border-radius: var(--radius-xl);
+  margin-bottom: 24px;
+  overflow: hidden;
 }
-.hero-decor {
-  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 300px; height: 300px; border-radius: 50%;
+.hero::before {
+  content: '';
+  position: absolute; top: -50%; right: -10%;
+  width: 400px; height: 400px; border-radius: 50%;
   background: radial-gradient(circle, rgba(196,169,106,0.08) 0%, transparent 70%);
   pointer-events: none;
 }
-.hero-title { font-size: 32px; font-weight: 800; color: var(--color-text); margin: 0 0 10px; position: relative; }
-.hero-sub { font-size: 15px; color: var(--color-text-secondary); margin: 0; position: relative; }
-.hero-count { font-weight: 800; color: var(--color-primary); font-size: 18px; }
+.hero-left { position: relative; z-index: 1; }
+.hero-decor {
+  position: absolute; top: -60px; left: -40px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(196,169,106,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-title { font-size: 28px; font-weight: 800; color: #fff; margin: 0 0 10px; position: relative; }
+.hero-sub { font-size: 14px; color: rgba(255,255,255,0.6); margin: 0 0 8px; position: relative; }
+.hero-count { font-weight: 800; color: #C4A96A; font-size: 18px; }
+.hero-badge { font-size: 11px; color: rgba(255,255,255,0.35); position: relative; }
+
+// Hero 右侧统计
+.hero-right {
+  display: flex; gap: 28px; position: relative; z-index: 1;
+}
+.hero-stat { text-align: center; }
+.hs-num {
+  font-size: 26px; font-weight: 800; color: #8A9BA8;
+  font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+  line-height: 1.2;
+}
+.hs-label { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+// 搜索卡片 - 深蓝背景
+.search-card {
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #16162e 100%);
+  border-radius: var(--radius-xl);
+  padding: 28px 32px 20px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: '';
+    position: absolute; top: -30%; left: -5%;
+    width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(138,155,168,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+}
 
 // 搜索胶囊
-.search-bar { margin-bottom: 20px; }
+.search-bar { margin-bottom: 16px; position: relative; z-index: 1; }
 .search-capsule {
   display: flex; align-items: center; gap: 0;
   background: var(--color-surface); border: 1.5px solid var(--color-border);
@@ -241,11 +402,19 @@ onMounted(() => { handleSearch(); fetchDeptStats() })
   &::placeholder { color: var(--color-text-muted); }
 }
 .search-select {
-  border: none; outline: none; background: var(--color-bg-alt);
+  appearance: none; -webkit-appearance: none;
+  border: 1.5px solid var(--color-border); outline: none;
+  background: var(--color-bg);
   color: var(--color-text-secondary); font-size: 13px;
-  padding: 6px 10px; border-radius: var(--radius-full); cursor: pointer;
-  font-family: var(--font-sans);
-  &--sm { max-width: 90px; }
+  padding: 6px 28px 6px 12px; border-radius: var(--radius-full);
+  cursor: pointer; font-family: var(--font-sans);
+  font-weight: 500;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: all 0.2s var(--ease-out);
+  &:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  &--sm { max-width: 90px; padding: 6px 24px 6px 10px; }
 }
 .search-btn {
   padding: 8px 24px; border-radius: var(--radius-full); border: none;
@@ -256,10 +425,36 @@ onMounted(() => { handleSearch(); fetchDeptStats() })
   &:hover { box-shadow: 0 4px 16px rgba(196,169,106,0.3); transform: scale(1.02); }
 }
 
-// 部门 chip
-.dept-chips {
-  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px;
+// 热门搜索
+.hot-search {
+  display: flex; align-items: center; gap: 8px;
+  justify-content: center; flex-wrap: wrap;
+  position: relative; z-index: 1;
 }
+.hot-label { font-size: 12px; color: rgba(255,255,255,0.5); }
+.hot-tag {
+  padding: 4px 12px; border-radius: var(--radius-full);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.65);
+  font-size: 12px; cursor: pointer;
+  transition: all 0.2s var(--ease-out);
+  &:hover { border-color: rgba(196,169,106,0.5); color: #C4A96A; background: rgba(196,169,106,0.1); }
+}
+
+    // 部门 chip — 单排横向滚动
+  .dept-chips {
+    display: flex !important; gap: 10px; flex-wrap: nowrap; overflow-x: auto;
+    margin-bottom: 28px; padding: 4px 0 12px 0;
+    scroll-behavior: smooth;
+    cursor: grab;
+    -webkit-overflow-scrolling: touch;
+    &::-webkit-scrollbar { height: 0; display: none; }
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%);
+    > * { flex-shrink: 0 !important; }
+  }
 
 // 岗位网格
 .job-grid {

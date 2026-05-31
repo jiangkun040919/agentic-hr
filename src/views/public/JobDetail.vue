@@ -123,7 +123,7 @@ const isLoggedIn = computed(() => userStore.isLoggedIn)
 const isCandidate = computed(() => userStore.isCandidate)
 
 const deptGradients: Record<string, string> = {
-  '技术部': 'linear-gradient(135deg, #C4A96A, #E85555)', 'AI部': 'linear-gradient(135deg, #8B9A6E, #9333EA)',
+  '技术部': 'linear-gradient(135deg, #C4A96A, #B8605A)', 'AI部': 'linear-gradient(135deg, #8B9A6E, #8B9A6E)',
   '前端部': 'linear-gradient(135deg, #8A9BA8, #6B7B8D)', '数据部': 'linear-gradient(135deg, #7A8B5E, #6B8B4E)',
   '产品部': 'linear-gradient(135deg, #C4A96A, #B08040)', '架构部': 'linear-gradient(135deg, #C08070, #C08070)',
   '运维部': 'linear-gradient(135deg, #8A9BA8, #7A8B5E)', '安全部': 'linear-gradient(135deg, #C4A96A, #8B9A6E)',

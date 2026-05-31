@@ -235,24 +235,24 @@ const initTrendChart = () => {
   const interviews = days.map(() => Math.round(2 + Math.random() * 15))
   const hires = days.map(() => Math.round(0.5 + Math.random() * 5))
   trendChart.setOption({
-    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#2A2A35', textStyle: { color: '#E8E8ED' } },
-    legend: { top: 0, textStyle: { color: '#A8A8B3', fontSize: 12 } },
+    tooltip: { trigger: 'axis', backgroundColor: '#1C1C2E', borderColor: '#3D3830', textStyle: { color: '#E8E0D5' } },
+    legend: { top: 0, textStyle: { color: '#A09888', fontSize: 12 } },
     grid: { left: '3%', right: '4%', bottom: '3%', top: '35px', containLabel: true },
-    xAxis: { type: 'category', data: days, axisLabel: { color: '#A8A8B3', fontSize: 10, interval: 4 }, axisLine: { lineStyle: { color: '#2A2A35' } } },
-    yAxis: { type: 'value', axisLabel: { color: '#A8A8B3' }, splitLine: { lineStyle: { color: '#22222D' } } },
+    xAxis: { type: 'category', data: days, axisLabel: { color: '#A09888', fontSize: 10, interval: 4 }, axisLine: { lineStyle: { color: '#3D3830' } } },
+    yAxis: { type: 'value', axisLabel: { color: '#A09888' }, splitLine: { lineStyle: { color: '#302B25' } } },
     series: [
-      { name: '投递', type: 'line', data: deliveries, smooth: true, lineStyle: { color: '#6C6FF7', width: 2 }, itemStyle: { color: '#6C6FF7' }, areaStyle: { color: 'rgba(108,111,247,0.08)' } },
+      { name: '投递', type: 'line', data: deliveries, smooth: true, lineStyle: { color: '#C4A96A', width: 2 }, itemStyle: { color: '#C4A96A' }, areaStyle: { color: 'rgba(196,169,106,0.08)' } },
       { name: '面试', type: 'line', data: interviews, smooth: true, lineStyle: { color: '#F0A500', width: 2 }, itemStyle: { color: '#F0A500' }, areaStyle: { color: 'rgba(240,165,0,0.08)' } },
-      { name: '入职', type: 'line', data: hires, smooth: true, lineStyle: { color: '#2DD4A3', width: 2 }, itemStyle: { color: '#2DD4A3' }, areaStyle: { color: 'rgba(45,212,163,0.08)' } },
+      { name: '入职', type: 'line', data: hires, smooth: true, lineStyle: { color: '#7A8B5E', width: 2 }, itemStyle: { color: '#7A8B5E' }, areaStyle: { color: 'rgba(122,139,94,0.08)' } },
     ],
   })
 }
 
 // 部门颜色映射
 const deptColorMap: Record<string, string> = {
-  '技术部': '#6C6FF7', '产品部': '#22C5DE', '数据部': '#F0A500',
-  '研究院': '#A86EF7', '设计部': '#F472B6', '市场部': '#34D399',
-  '运营部': '#8B8EF9', '财务部': '#F4586D', '人力资源部': '#F0A500',
+  '技术部': '#C4A96A', '产品部': '#8A9BA8', '数据部': '#F0A500',
+  '研究院': '#8B9A6E', '设计部': '#C08070', '市场部': '#9AB87A',
+  '运营部': '#D4B97A', '财务部': '#B8605A', '人力资源部': '#F0A500',
   'AI部': '#9B7ED8',
 }
 
@@ -260,11 +260,11 @@ const initPieChart = (deptData?: { name: string; value: number }[]) => {
   if (!pieChartRef.value) return
   pieChart = echarts.init(pieChartRef.value)
   const pieData = (deptData && deptData.length > 0)
-    ? deptData.map(d => ({ value: d.value, name: d.name, itemStyle: { color: deptColorMap[d.name] || '#6C6FF7' } }))
+    ? deptData.map(d => ({ value: d.value, name: d.name, itemStyle: { color: deptColorMap[d.name] || '#C4A96A' } }))
     : [{ value: 1, name: '暂无数据', itemStyle: { color: '#666' } }]
   pieChart.setOption({
-    tooltip: { trigger: 'item', backgroundColor: '#1C1C2E', borderColor: '#2A2A35', textStyle: { color: '#E8E8ED' } },
-    legend: { bottom: 5, textStyle: { color: '#A8A8B3', fontSize: 11 } },
+    tooltip: { trigger: 'item', backgroundColor: '#1C1C2E', borderColor: '#3D3830', textStyle: { color: '#E8E0D5' } },
+    legend: { bottom: 5, textStyle: { color: '#A09888', fontSize: 11 } },
     series: [{
       type: 'pie', radius: ['45%', '75%'], center: ['50%', '45%'],
       avoidLabelOverlap: true, padAngle: 2,

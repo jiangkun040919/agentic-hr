@@ -514,7 +514,7 @@ onUnmounted(() => {
     color: #fff;
     font-weight: var(--weight-semibold);
     font-size: 14px;
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 10px rgba(196, 169, 106, 0.18);
   }
 
   .header-username {
@@ -537,8 +537,8 @@ onUnmounted(() => {
   padding: var(--space-6);
   overflow-y: auto;
   background-image:
-    radial-gradient(circle at 20% 0%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 80% 100%, rgba(168, 85, 247, 0.02) 0%, transparent 50%);
+    radial-gradient(circle at 20% 0%, rgba(196, 169, 106, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 100%, rgba(139, 154, 110, 0.03) 0%, transparent 50%);
 }
 
 // ====== 通知弹出框 ======

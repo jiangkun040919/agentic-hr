@@ -212,7 +212,7 @@ import * as echarts from 'echarts'
 import { getResumeList, compareCandidates } from '@/api/delivery'
 import GraphCanvas from '@/components/graph/GraphCanvas.vue'
 
-const COLORS = ['#6C6FF7', '#6B8B4E', '#B08040', '#A86EF7']
+const COLORS = ['#C4A96A', '#6B8B4E', '#B08040', '#8B9A6E']
 
 const listLoading = ref(false)
 const comparing = ref(false)
@@ -228,10 +228,10 @@ interface DimConfig {
 }
 
 const dimensions = reactive<DimConfig[]>([
-  { key: 'eduScore', label: '学历匹配', weight: 15, defaultValue: 15, color: '#6C6FF7' },
+  { key: 'eduScore', label: '学历匹配', weight: 15, defaultValue: 15, color: '#C4A96A' },
   { key: 'expScore', label: '经验匹配', weight: 20, defaultValue: 20, color: '#B08040' },
   { key: 'skillScore', label: '技能匹配', weight: 40, defaultValue: 40, color: '#6B8B4E' },
-  { key: 'completeScore', label: '简历完整度', weight: 25, defaultValue: 25, color: '#A86EF7' },
+  { key: 'completeScore', label: '简历完整度', weight: 25, defaultValue: 25, color: '#8B9A6E' },
 ])
 
 const DEFAULT_WEIGHTS = [15, 20, 40, 25]
@@ -272,7 +272,7 @@ const runComparison = async () => {
   }
 }
 
-const scoreColor = (s: number) => s >= 80 ? '#6B8B4E' : s >= 60 ? '#B08040' : '#F43F5E'
+const scoreColor = (s: number) => s >= 80 ? '#6B8B4E' : s >= 60 ? '#B08040' : '#B8605A'
 
 // 根据加权计算各维度得分
 const getWeightedDimScore = (c: any, dimKey: string) => {
@@ -384,23 +384,23 @@ const renderRadarChart = () => {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(19, 19, 22, 0.95)',
+      backgroundColor: 'rgba(42, 37, 32, 0.95)',
       borderColor: '#27272A',
       textStyle: { color: '#FAFAFA' }
     },
     legend: {
       data: [...comparisonData.value.candidates.map((c: any) => c.candidateName), '岗位基准'],
       bottom: 0,
-      textStyle: { fontSize: 11, color: '#A8A8B3' }
+      textStyle: { fontSize: 11, color: '#A09888' }
     },
     radar: {
       center: ['50%', '50%'],
       radius: '65%',
       indicator,
-      axisName: { color: '#A8A8B3', fontSize: 11 },
+      axisName: { color: '#A09888', fontSize: 11 },
       axisLine: { lineStyle: { color: '#27272A' } },
       splitLine: { lineStyle: { color: '#1F1F24' } },
-      splitArea: { areaStyle: { color: ['rgba(99, 102, 241, 0.02)', 'rgba(99, 102, 241, 0.02)'] } }
+      splitArea: { areaStyle: { color: ['rgba(196, 169, 106, 0.02)', 'rgba(196, 169, 106, 0.02)'] } }
     },
     series
   })

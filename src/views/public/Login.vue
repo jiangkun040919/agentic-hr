@@ -63,7 +63,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
-const form = reactive({ username: 'hr_admin', password: '123456' })
+const form = reactive({ username: '', password: '' })
 const rules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, min: 6, message: '密码至少6位', trigger: 'blur' }],
@@ -103,16 +103,16 @@ const handleLogin = async () => {
 .login-card { display: flex; border-radius: var(--radius-xl); overflow: hidden; min-height: 520px; }
 
 .brand-panel {
-  width: 44%; background: linear-gradient(180deg, rgba(19, 19, 22, 0.95) 0%, rgba(13, 13, 18, 0.98) 100%);
+  width: 44%; background: linear-gradient(180deg, rgba(42, 37, 32, 0.95) 0%, rgba(13, 13, 18, 0.98) 100%);
   display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;
-  .brand-glow { position: absolute; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); animation: neonPulse 3s ease-in-out infinite; }
+  .brand-glow { position: absolute; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(196, 169, 106, 0.3) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); animation: neonPulse 3s ease-in-out infinite; }
   .brand-content { position: relative; z-index: 1; text-align: center; padding: var(--space-8); }
   .brand-icon { margin-bottom: var(--space-6); }
   .brand-hex { width: 72px; height: 72px; margin: 0 auto; background: var(--gradient-primary); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--glow-primary-lg); }
   .brand-title { font-size: 28px; font-weight: var(--weight-bold); margin-bottom: var(--space-3); }
   .brand-desc { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.8; margin-bottom: var(--space-8); }
   .brand-features { text-align: left; display: inline-flex; flex-direction: column; gap: var(--space-3); }
-  .feature-item { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-text-secondary); .feature-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gradient-primary); box-shadow: 0 0 6px rgba(99, 102, 241, 0.4); } }
+  .feature-item { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-text-secondary); .feature-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gradient-primary); box-shadow: 0 0 6px rgba(196, 169, 106, 0.4); } }
 }
 
 .form-panel {

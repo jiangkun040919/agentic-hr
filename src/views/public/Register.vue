@@ -140,9 +140,9 @@ const handleRegister = async () => {
 .register-card { display: flex; border-radius: var(--radius-xl); overflow: hidden; min-height: 580px; }
 
 .brand-panel {
-  width: 40%; background: linear-gradient(180deg, rgba(19, 19, 22, 0.95) 0%, rgba(13, 13, 18, 0.98) 100%);
+  width: 40%; background: linear-gradient(180deg, rgba(42, 37, 32, 0.95) 0%, rgba(13, 13, 18, 0.98) 100%);
   display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;
-  .brand-glow { position: absolute; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); animation: neonPulse 3s ease-in-out infinite; }
+  .brand-glow { position: absolute; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(139, 154, 110, 0.25) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); animation: neonPulse 3s ease-in-out infinite; }
   .brand-content { position: relative; z-index: 1; text-align: center; padding: var(--space-8); }
   .brand-icon { margin-bottom: var(--space-6); }
   .brand-hex { width: 72px; height: 72px; margin: 0 auto; background: var(--gradient-primary); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: var(--glow-primary-lg); }
