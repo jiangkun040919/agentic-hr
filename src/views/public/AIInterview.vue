@@ -986,7 +986,20 @@ const viewDetail = () => {
   router.push({ name: 'AIInterviewReport', params: { sessionId: sessionId.value } })
 }
 
-const handleBack = () => { router.back() }
+const handleBack = () => {
+  // 面试进行中 → 确认是否退出
+  if (interviewStarted.value && !isEnded.value) {
+    ElMessageBox.confirm(
+      '面试尚未完成，退出后可在"我的投递"中继续。确定要退出吗？',
+      '退出面试',
+      { confirmButtonText: '退出', cancelButtonText: '继续面试', type: 'warning' }
+    ).then(() => {
+      router.back()
+    }).catch(() => {})
+    return
+  }
+  router.back()
+}
 
 const scrollToBottom = () => {
   nextTick(() => {

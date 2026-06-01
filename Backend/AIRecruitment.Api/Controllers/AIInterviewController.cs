@@ -197,6 +197,7 @@ public class AIInterviewController : ControllerBase
                 .Select(s => new
                 {
                     s.SessionId,
+                    s.DeliveryId,
                     s.Status,
                     s.TotalScore,
                     s.TotalDuration,

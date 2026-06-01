@@ -189,14 +189,17 @@ const deliveries = computed(() => resumeStore.deliveries)
 const statusBarColors: Record<number, string> = { 0: '#C4A96A', 1: '#8A9BA8', 2: '#8B9A6E', 3: '#7A8B5E', 4: '#7A8B5E', 5: '#C4A96A' }
 const sessionStatusColors: Record<number, string> = { 0: 'gray', 1: 'sunny', 2: 'mint', 3: 'coral' }
 
-const getCompletedAIDeliveryIds = (): Set<number> => {
-  try { const raw = localStorage.getItem('completedAIInterviewDeliveries'); return new Set(raw ? JSON.parse(raw) : []) }
-  catch { return new Set() }
-}
-const completedAIDeliveryIds = ref<Set<number>>(getCompletedAIDeliveryIds())
+// 获取有活跃或已完成 AI session 的 deliveryId 集合
+const aiActiveDeliveryIds = computed(() => {
+  const ids = new Set<number>()
+  for (const s of aiSessions.value) {
+    if (s.deliveryId) ids.add(s.deliveryId)
+  }
+  return ids
+})
 
 const aiInterviewInvitations = computed(() =>
-  deliveries.value.filter(d => d.allowAIInterview && !completedAIDeliveryIds.value.has(d.deliveryId))
+  deliveries.value.filter(d => d.allowAIInterview && !aiActiveDeliveryIds.value.has(d.deliveryId))
 )
 
 const activeTab = ref('deliveries')
@@ -217,18 +220,22 @@ const showEdit = ref(false)
 const editingDelivery = ref<any>(null)
 const editForm = reactive({ candidateName: '', phone: '', email: '', education: '', workYears: 0 })
 
-onMounted(() => { resumeStore.fetchMyDeliveries() })
+onMounted(() => { resumeStore.fetchMyDeliveries(); fetchAISessions() })
 
 const aiSessions = ref<any[]>([])
 const aiSessionsLoading = ref(false)
 const fetchAISessions = async () => {
   aiSessionsLoading.value = true
-  try { const res = await getMyAISessions(); if (res.data?.code === 200) aiSessions.value = res.data.data || [] }
+  try {
+    const res = await getMyAISessions()
+    // 响应拦截器已解包 data，res 直接是 { code, data }
+    if (res?.code === 200) aiSessions.value = res.data || []
+  }
   catch { aiSessions.value = [] }
   finally { aiSessionsLoading.value = false }
 }
 
-watch(activeTab, (val) => { if (val === 'ai-interviews' && aiSessions.value.length === 0) fetchAISessions() })
+watch(activeTab, (val) => { if (val === 'ai-interviews') fetchAISessions() })
 
 const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm')
 const formatDeadline = (date: string | null | undefined) => date ? dayjs(date).format('YYYY-MM-DD HH:mm') : ''
@@ -253,9 +260,6 @@ const submitEdit = async () => {
 const startAIInterview = (delivery: any) => {
   const userId = localStorage.getItem('userId') || localStorage.getItem('candidateId') || ''
   if (!userId) { ElMessage.warning('请重新登录'); router.push('/login'); return }
-  const ids = getCompletedAIDeliveryIds(); ids.add(delivery.deliveryId)
-  localStorage.setItem('completedAIInterviewDeliveries', JSON.stringify([...ids]))
-  completedAIDeliveryIds.value = ids
   router.push({ name: 'AIInterview', params: { jobId: String(delivery.jobId), deliveryId: String(delivery.deliveryId), candidateId: String(userId) } })
 }
 </script>
