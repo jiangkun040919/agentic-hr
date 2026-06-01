@@ -182,7 +182,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, onActivated } from 'vue'
 import { Search, Service, UserFilled } from '@element-plus/icons-vue'
 import { getAIInterviewList, getAIInterviewMessages } from '@/api/interview-ai'
 import dayjs from 'dayjs'
@@ -231,6 +231,11 @@ onMounted(() => {
   fetchList()
 })
 
+// 从其他页面切回时自动刷新
+onActivated(() => {
+  fetchList()
+})
+
 const fetchList = async () => {
   loading.value = true
   try {
@@ -240,15 +245,17 @@ const fetchList = async () => {
       keyword: keyword.value || undefined
     })
 
-    // 响应拦截器已解包：后端 { code:200, data:[] } → 拦截器返回 []
-    const data = Array.isArray(res) ? res : (res?.data || [])
+    // 响应拦截器已解包，兼容多种返回格式
+    const data = Array.isArray(res) ? res : (res?.data || res?.data?.data || res || [])
+    const list = Array.isArray(data) ? data : []
+
     if (statusFilter.value >= 0) {
-      const filtered = data.filter((s: any) => s.status === statusFilter.value)
+      const filtered = list.filter((s: any) => s.status === statusFilter.value)
       sessions.value = filtered
       total.value = filtered.length
     } else {
-      sessions.value = data
-      total.value = data.length
+      sessions.value = list
+      total.value = list.length
     }
   } catch (e) {
     console.error(e)

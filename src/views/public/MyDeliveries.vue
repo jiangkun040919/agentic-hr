@@ -168,8 +168,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onActivated, reactive, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useResumeStore } from '@/stores/resume'
 import { updateDeliveryInfo } from '@/api/delivery'
 import { getMyAISessions } from '@/api/interview-ai'
@@ -182,6 +182,7 @@ import VEmpty from '@/components/ui/VEmpty.vue'
 import VDialog from '@/components/ui/VDialog.vue'
 
 const router = useRouter()
+const route = useRoute()
 const resumeStore = useResumeStore()
 const loading = computed(() => resumeStore.loading)
 const deliveries = computed(() => resumeStore.deliveries)
@@ -220,7 +221,18 @@ const showEdit = ref(false)
 const editingDelivery = ref<any>(null)
 const editForm = reactive({ candidateName: '', phone: '', email: '', education: '', workYears: 0 })
 
-onMounted(() => { resumeStore.fetchMyDeliveries(); fetchAISessions() })
+onMounted(async () => {
+  await resumeStore.fetchMyDeliveries()
+  await fetchAISessions()
+})
+
+// keep-alive 场景下激活时刷新
+onActivated(() => { fetchAISessions() })
+
+// 从 AIInterview 等页面返回时自动刷新 sessions
+watch(() => route.name, (name) => {
+  if (name === 'MyDeliveries') fetchAISessions()
+})
 
 const aiSessions = ref<any[]>([])
 const aiSessionsLoading = ref(false)
@@ -228,8 +240,9 @@ const fetchAISessions = async () => {
   aiSessionsLoading.value = true
   try {
     const res = await getMyAISessions()
-    // 响应拦截器已解包 data，res 直接是 { code, data }
-    if (res?.code === 200) aiSessions.value = res.data || []
+    // 响应拦截器已解包，兼容多种返回格式
+    const list = Array.isArray(res) ? res : (res?.data || res || [])
+    aiSessions.value = Array.isArray(list) ? list : []
   }
   catch { aiSessions.value = [] }
   finally { aiSessionsLoading.value = false }
