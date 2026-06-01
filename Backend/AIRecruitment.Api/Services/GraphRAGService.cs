@@ -106,7 +106,7 @@ public class GraphRAGService
                 CandidateSkills = candidateSkills,
                 Recommendations = recs,
                 GraphJobCount = jobs.Count,
-                GeneratedAt = DateTime.Now
+                GeneratedAt = DateTime.UtcNow
             };
         }
         catch (Exception ex)
@@ -158,7 +158,7 @@ public class GraphRAGService
                 CurrentMatchRate = gap.MatchRate,
                 MissingSkills = gap.MissingSkills,
                 RawAIResponse = CleanJson(aiResponse),
-                GeneratedAt = DateTime.Now
+                GeneratedAt = DateTime.UtcNow
             };
         }
         catch (Exception ex)
@@ -170,7 +170,7 @@ public class GraphRAGService
                 CurrentMatchRate = gap.MatchRate,
                 MissingSkills = gap.MissingSkills,
                 RawAIResponse = "{}",
-                GeneratedAt = DateTime.Now
+                GeneratedAt = DateTime.UtcNow
             };
         }
     }
@@ -308,7 +308,7 @@ public class GraphRAGService
             Communities = communities,
             TotalNodes = graphData.Nodes.Count,
             TotalEdges = graphData.Edges.Count,
-            GeneratedAt = DateTime.Now
+            GeneratedAt = DateTime.UtcNow
         };
     }
 
@@ -388,7 +388,7 @@ public class GraphRAGService
             CandidateSkills = candidateSkills,
             Recommendations = recs,
             GraphJobCount = topJobs.Count,
-            GeneratedAt = DateTime.Now
+            GeneratedAt = DateTime.UtcNow
         };
     }
 }

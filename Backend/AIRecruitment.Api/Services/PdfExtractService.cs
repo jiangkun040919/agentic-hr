@@ -120,7 +120,7 @@ except Exception as e:
         var ext = Path.GetExtension(docxPath).ToLowerInvariant();
         if (ext != ".docx" && ext != ".doc") return null;
 
-        var pdfPath = Path.Combine(_uploadsDir, $"{deliveryId}_{DateTime.Now:yyyyMMddHHmmss}_converted.pdf");
+        var pdfPath = Path.Combine(_uploadsDir, $"{deliveryId}_{DateTime.UtcNow:yyyyMMddHHmmss}_converted.pdf");
         var escapedInput = docxPath.Replace("\\", "\\\\");
         var escapedOutput = pdfPath.Replace("\\", "\\\\");
 
@@ -173,7 +173,7 @@ except Exception as e:
 
         // 保存到永久目录
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        var permFileName = $"{deliveryId}_{DateTime.Now:yyyyMMddHHmmss}{ext}";
+        var permFileName = $"{deliveryId}_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
         var permPath = Path.Combine(_uploadsDir, permFileName);
         await File.WriteAllBytesAsync(permPath, bytes);
 

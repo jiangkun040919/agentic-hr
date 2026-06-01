@@ -19,7 +19,7 @@ public class DailyStatisticsService : IDailyStatisticsService
 
     public async Task GenerateDailyStatistics()
     {
-        var today = DateTime.Now.Date;
+        var today = DateTime.UtcNow.Date;
         var hrIds = await _context.SysUsers
             .Where(u => u.Role == "hr")
             .Select(u => u.UserId)
@@ -59,13 +59,13 @@ public class JobExpirationService : IJobExpirationService
     public async Task CheckAndExpireJobs()
     {
         var expiredJobs = await _context.Jobs
-            .Where(j => j.Status == 1 && j.ExpiredAt != null && j.ExpiredAt < DateTime.Now)
+            .Where(j => j.Status == 1 && j.ExpiredAt != null && j.ExpiredAt < DateTime.UtcNow)
             .ToListAsync();
 
         foreach (var job in expiredJobs)
         {
             job.Status = 2; // 已过期
-            job.UpdatedAt = DateTime.Now;
+            job.UpdatedAt = DateTime.UtcNow;
             Console.WriteLine($"[JobExpiration] 岗位已过期: {job.JobId} - {job.Title}");
         }
 
@@ -90,7 +90,7 @@ public class ResumeCleanupService : IResumeCleanupService
 
     public async Task CleanupOldResumes()
     {
-        var cutoffDate = DateTime.Now.AddDays(-180);
+        var cutoffDate = DateTime.UtcNow.AddDays(-180);
         
         // 清理旧的AI分析记录（保留180天）
         var oldAnalyses = await _context.AIResumeAnalyses

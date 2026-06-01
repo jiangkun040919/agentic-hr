@@ -229,7 +229,7 @@ public class KnowledgeGraphService : IDisposable
                 JobName = job,
                 SkillsJson = JsonConvert.SerializeObject(skills),
                 Period = period,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             });
         }
 
@@ -242,7 +242,7 @@ public class KnowledgeGraphService : IDisposable
                 snapshots.Clear();
                 await cursor.ForEachAsync(record =>
                 {
-                    snapshots.Add(new GraphSnapshot { JobName = record["job"].As<string>(), SkillsJson = JsonConvert.SerializeObject(record["skills"]), Period = period, CreatedAt = DateTime.Now });
+                    snapshots.Add(new GraphSnapshot { JobName = record["job"].As<string>(), SkillsJson = JsonConvert.SerializeObject(record["skills"]), Period = period, CreatedAt = DateTime.UtcNow });
                 });
             }
             catch { }

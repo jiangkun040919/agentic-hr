@@ -26,7 +26,7 @@ public class ExportController : ControllerBase
             var bytes = await _export.ExportDeliveriesAsync();
             return File(bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                $"投递记录_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                $"投递记录_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx");
         }
         catch (Exception ex)
         {
@@ -44,7 +44,7 @@ public class ExportController : ControllerBase
             var bytes = await _export.ExportCandidatesAsync();
             return File(bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                $"候选人数据_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                $"候选人数据_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx");
         }
         catch (Exception ex)
         {
@@ -62,7 +62,7 @@ public class ExportController : ControllerBase
             var bytes = await _export.ExportBenchmarkReportAsync();
             return File(bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                $"准确率评测报告_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                $"准确率评测报告_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx");
         }
         catch (Exception ex)
         {

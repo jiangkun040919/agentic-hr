@@ -79,7 +79,7 @@ public class RabbitMQConsumerService : BackgroundService
                         Module = "EmailNotification",
                         Action = "Send",
                         Detail = body[..Math.Min(body.Length, 500)],
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     });
                     await db.SaveChangesAsync();
                     _channel.BasicAck(ea.DeliveryTag, false);
@@ -105,7 +105,7 @@ public class RabbitMQConsumerService : BackgroundService
                         Module = "ReportGeneration",
                         Action = "Generate",
                         Detail = body[..Math.Min(body.Length, 500)],
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     });
                     await db.SaveChangesAsync();
                     _channel.BasicAck(ea.DeliveryTag, false);

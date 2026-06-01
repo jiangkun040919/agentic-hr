@@ -28,7 +28,7 @@ public class DecisionIntelligenceService
         if (candidate == null || job == null) throw new Exception("候选人或岗位不存在");
 
         var report = new ExplainableMatchReport
-        { CandidateName = candidate.RealName, JobTitle = job.Title, GeneratedAt = DateTime.Now };
+        { CandidateName = candidate.RealName, JobTitle = job.Title, GeneratedAt = DateTime.UtcNow };
 
         var resumeText = $"{candidate.Education} {candidate.WorkYears.GetValueOrDefault()}年";
         var candidateSkills = ExtractSkillsFromText(resumeText);
@@ -121,7 +121,7 @@ public class DecisionIntelligenceService
         var jSkills = ExtractSkillsFromText($"{job.Requirements} {job.JD}");
 
         var radar = new HiringRiskRadar
-        { CandidateName = candidate.RealName, JobTitle = job.Title, GeneratedAt = DateTime.Now, Dimensions = new() };
+        { CandidateName = candidate.RealName, JobTitle = job.Title, GeneratedAt = DateTime.UtcNow, Dimensions = new() };
 
         // 维度1: 技能可补救性
         var missing = jSkills.Where(js => !cSkills.Any(cs => string.Equals(cs, js, StringComparison.OrdinalIgnoreCase))).ToList();

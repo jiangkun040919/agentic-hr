@@ -83,7 +83,7 @@ public class AIInterviewService : IAIInterviewService
             throw new Exception("HR尚未允许您参加AI面试，请等待通知");
         
         // 检查截止时间
-        if (delivery.AIInterviewDeadline.HasValue && DateTime.Now > delivery.AIInterviewDeadline.Value)
+        if (delivery.AIInterviewDeadline.HasValue && DateTime.UtcNow > delivery.AIInterviewDeadline.Value)
             throw new Exception("AI面试申请已过期");
 
         // 检查是否已完成过面试（禁止重复面试）
@@ -108,7 +108,7 @@ public class AIInterviewService : IAIInterviewService
             CandidateId = actualCandidateId,
             JobId = actualJobId,
             Status = 0,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.AIInterviewSessions.Add(session);
@@ -129,7 +129,7 @@ public class AIInterviewService : IAIInterviewService
         var candidate = session.Delivery?.Candidate;
 
         session.Status = 1;
-        session.StartTime = DateTime.Now;
+        session.StartTime = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         var systemPrompt = $@"你是一个专业、严谨的AI面试官。请严格按照以下规则进行面试：
@@ -182,7 +182,7 @@ public class AIInterviewService : IAIInterviewService
             Content = content,
             MessageType = "question",
             OrderIndex = 1,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.AIInterviewMessages.Add(message);
@@ -211,7 +211,7 @@ public class AIInterviewService : IAIInterviewService
             Content = answer,
             MessageType = "answer",
             OrderIndex = messageHistory.Count + 1,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
         _context.AIInterviewMessages.Add(answerMsg);
 
@@ -226,7 +226,7 @@ public class AIInterviewService : IAIInterviewService
         if (isEnded)
         {
             session.Status = 2;
-            session.EndTime = DateTime.Now;
+            session.EndTime = DateTime.UtcNow;
             session.TotalDuration = (int)(session.EndTime.Value - session.StartTime!.Value).TotalSeconds;
 
             // 同步投递状态
@@ -236,7 +236,7 @@ public class AIInterviewService : IAIInterviewService
                 if (delivery != null && delivery.Status < 2)
                 {
                     delivery.Status = 2;
-                    delivery.UpdateTime = DateTime.Now;
+                    delivery.UpdateTime = DateTime.UtcNow;
                 }
                 // 发通知给 HR
                 if (delivery != null)
@@ -250,7 +250,7 @@ public class AIInterviewService : IAIInterviewService
                                   $"投递ID: {session.DeliveryId}，请查看详情。",
                         RelatedId = sessionId,
                         RelatedType = "ai_interview",
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     };
                     _context.Notifications.Add(notification);
                     // 实时推送通知给 HR
@@ -273,7 +273,7 @@ public class AIInterviewService : IAIInterviewService
             Content = content,
             MessageType = isEnded ? "evaluation" : "question",
             OrderIndex = messageHistory.Count + 2,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
         _context.AIInterviewMessages.Add(aiMsg);
         await _context.SaveChangesAsync();
@@ -422,7 +422,7 @@ public class AIInterviewService : IAIInterviewService
         if (session.Status == 1)
         {
             session.Status = 3;
-            session.EndTime = DateTime.Now;
+            session.EndTime = DateTime.UtcNow;
             if (session.StartTime.HasValue)
                 session.TotalDuration = (int)(session.EndTime.Value - session.StartTime.Value).TotalSeconds;
         }
@@ -434,7 +434,7 @@ public class AIInterviewService : IAIInterviewService
             if (delivery != null && delivery.Status < 2)
             {
                 delivery.Status = 2; // 标记为面试中→已完成
-                delivery.UpdateTime = DateTime.Now;
+                delivery.UpdateTime = DateTime.UtcNow;
             }
         }
 
@@ -455,7 +455,7 @@ public class AIInterviewService : IAIInterviewService
                               $"完成了 {delivery.Job?.Title ?? "岗位"} 的AI面试，得分 {session.TotalScore ?? 0} 分，请查看详情。",
                     RelatedId = sessionId,
                     RelatedType = "ai_interview",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
                 _context.Notifications.Add(notification);
                 if (_signalR != null)

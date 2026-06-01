@@ -45,7 +45,7 @@ public class UserService : IUserService
         var token = GenerateJwtToken(user);
         
         // 记录登录日志
-        user.LastLogin = DateTime.Now;
+        user.LastLogin = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         // 记录登录日志
@@ -62,41 +62,53 @@ public class UserService : IUserService
             throw new Exception("用户名已存在");
         }
 
-        // 创建用户
-        var user = new SysUser
+        // 开启事务保护，确保用户和Candidate同步创建或全部回滚
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            Username = request.Username,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            Role = request.Role,
-            RealName = request.RealName,
-            Phone = request.Phone,
-            Email = request.Email,
-            Status = 1,
-            CreatedAt = DateTime.Now
-        };
-
-        _context.SysUsers.Add(user);
-        await _context.SaveChangesAsync();  // 先保存用户以获取 UserId
-
-        // 如果是求职者，同时创建Candidate记录
-        if (request.Role == "candidate")
-        {
-            var candidate = new Candidate
+            // 创建用户
+            var user = new SysUser
             {
-                UserId = user.UserId,  // 此时 UserId 已被 EF 赋值
+                Username = request.Username,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                Role = request.Role,
                 RealName = request.RealName,
-                Phone = request.Phone ?? string.Empty,
+                Phone = request.Phone,
                 Email = request.Email,
-                CreatedAt = DateTime.Now
+                Status = 1,
+                CreatedAt = DateTime.UtcNow
             };
-            _context.Candidates.Add(candidate);
-            await _context.SaveChangesAsync();
-        }
-        
-        // 生成Token
-        var token = GenerateJwtToken(user);
 
-        return new LoginResponse(token, user.Role, user.UserId, user.Username);
+            _context.SysUsers.Add(user);
+            await _context.SaveChangesAsync();  // 先保存用户以获取 UserId
+
+            // 如果是求职者，同时创建Candidate记录
+            if (request.Role == "candidate")
+            {
+                var candidate = new Candidate
+                {
+                    UserId = user.UserId,  // 此时 UserId 已被 EF 赋值
+                    RealName = request.RealName,
+                    Phone = request.Phone ?? string.Empty,
+                    Email = request.Email,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Candidates.Add(candidate);
+                await _context.SaveChangesAsync();
+            }
+
+            await transaction.CommitAsync();
+            
+            // 生成Token
+            var token = GenerateJwtToken(user);
+
+            return new LoginResponse(token, user.Role, user.UserId, user.Username);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<UserInfoResponse> GetUserInfoAsync(int userId)
@@ -160,7 +172,7 @@ public class UserService : IUserService
                 RealName = user.RealName,
                 Phone = user.Phone ?? "",
                 Email = user.Email,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             _context.Candidates.Add(candidate);
         }
@@ -205,7 +217,7 @@ public class UserService : IUserService
         {
             UserId = userId,
             Status = status,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         });
         await _context.SaveChangesAsync();
     }

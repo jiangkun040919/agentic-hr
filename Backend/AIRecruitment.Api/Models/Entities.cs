@@ -16,7 +16,7 @@ public class SysUser
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public int Status { get; set; } = 1;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLogin { get; set; }
 }
 
@@ -36,7 +36,7 @@ public class Job
     public int? HeadCount { get; set; }
     public int Status { get; set; } = 1;
     public int HrId { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public DateTime? ExpiredAt { get; set; }
 
@@ -61,7 +61,7 @@ public class Candidate
     public string? ResumeUrl { get; set; }
     /// <summary>在线简历内容（候选人手写的简历文本）</summary>
     public string? ResumeContent { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<Delivery>? Deliveries { get; set; }
     public ICollection<AIResumeAnalysis>? AIAnalyses { get; set; }
@@ -90,7 +90,7 @@ public class Delivery
     public string? ResumeText { get; set; }
     public int Status { get; set; } = 0;
     public int HrId { get; set; }
-    public DateTime DeliverTime { get; set; } = DateTime.Now;
+    public DateTime DeliverTime { get; set; } = DateTime.UtcNow;
     public DateTime? UpdateTime { get; set; }
     public string? Remark { get; set; }
     /// <summary>是否允许进行AI面试（HR手动控制）</summary>
@@ -120,7 +120,7 @@ public class Interview
     public int Status { get; set; } = 0;
     public string? Result { get; set; }
     public string? Record { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
     [ForeignKey("DeliveryId")]
@@ -138,7 +138,7 @@ public class AIScore
     public int MatchScore { get; set; }
     public string? MatchReason { get; set; }
     public string? AnalysisReport { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("DeliveryId")]
     public Delivery? Delivery { get; set; }
@@ -153,7 +153,7 @@ public class AIInterviewQuestion
     public int JobId { get; set; }
     public string QuestionsJson { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("DeliveryId")]
     public Delivery? Delivery { get; set; }
@@ -172,7 +172,7 @@ public class AIResumeAnalysis
     public string? SkillsTags { get; set; }
     public string? WorkExperience { get; set; }
     public string? Projects { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("DeliveryId")]
     public Delivery? Delivery { get; set; }
@@ -189,7 +189,7 @@ public class AIRecruitmentInsight
     public string Period { get; set; } = string.Empty;
     public string PipelineData { get; set; } = string.Empty;
     public string? Recommendations { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("HrId")]
     public SysUser? Hr { get; set; }
@@ -204,7 +204,7 @@ public class SysLoginLog
     public string? IpAddress { get; set; }
     public string? UserAgent { get; set; }
     public string Status { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 [Table("SysOperLog")]
@@ -216,7 +216,7 @@ public class SysOperLog
     public string Module { get; set; } = string.Empty;
     public string Action { get; set; } = string.Empty;
     public string? Detail { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 [Table("SysConfig")]
@@ -241,7 +241,7 @@ public class UploadFile
     public string FileType { get; set; } = string.Empty;
     public long FileSize { get; set; }
     public int? UserId { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 [Table("GraphSnapshot")]
@@ -252,7 +252,7 @@ public class GraphSnapshot
     public string JobName { get; set; } = string.Empty;
     public string SkillsJson { get; set; } = string.Empty;
     public string Period { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 [Table("Notification")]
@@ -274,7 +274,7 @@ public class Notification
     public int? RelatedId { get; set; }
     /// <summary>关联业务类型</summary>
     public string? RelatedType { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReadAt { get; set; }
 
     [ForeignKey("UserId")]
@@ -313,7 +313,7 @@ public class SeedTemplate
     public int MaxInstances { get; set; } = 5;
     public int CurrentInstances { get; set; } = 0;
     public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 }
 
@@ -334,6 +334,6 @@ public class DiscoveredJob
     public string Status { get; set; } = "pending";         // pending / approved / rejected
     public string? ReviewedBy { get; set; }
     public DateTime? ReviewedAt { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

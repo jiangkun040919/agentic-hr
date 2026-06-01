@@ -204,7 +204,7 @@ public class ResumeAiService : IResumeAiService
             var user = $"解析以下简历：\n\n{resumeText[..Math.Min(resumeText.Length, 5000)]}";
             var raw = await CallAIAsync(system, user, 0.1);
             var parsed = JsonConvert.DeserializeObject<ParseResult>(raw);
-            if (parsed != null) { parsed.AnalysisMode = "AI深度解析"; parsed.AnalyzedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm"); }
+            if (parsed != null) { parsed.AnalysisMode = "AI深度解析"; parsed.AnalyzedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"); }
             return parsed ?? new ParseResult();
         }
         catch (Exception ex) { _logger.LogWarning(ex, "简历解析失败"); return new ParseResult(); }

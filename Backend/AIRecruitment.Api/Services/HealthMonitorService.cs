@@ -76,7 +76,7 @@ public class HealthMonitorBackgroundService : BackgroundService, IHealthMonitorS
         catch { healthy = false; }
 
         sw.Stop();
-        var result = new HealthCheckResult(name, url, healthy, sw.ElapsedMilliseconds, statusCode, DateTime.Now);
+        var result = new HealthCheckResult(name, url, healthy, sw.ElapsedMilliseconds, statusCode, DateTime.UtcNow);
         _results[name] = result;
 
         var prevHealthy = _previousHealth.GetValueOrDefault(name, true);
@@ -91,7 +91,7 @@ public class HealthMonitorBackgroundService : BackgroundService, IHealthMonitorS
                 Module = "HealthMonitor",
                 Action = healthy ? "Recovered" : "Failed",
                 Detail = $"{name} ({url}) = {(healthy ? "UP" : "DOWN")}, {sw.ElapsedMilliseconds}ms",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();
 

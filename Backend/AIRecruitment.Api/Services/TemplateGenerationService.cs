@@ -88,7 +88,7 @@ public class TemplateGenerationService
             tpl.MaxInstances = 5;
             tpl.CurrentInstances = 0;
             tpl.IsActive = true;
-            tpl.CreatedAt = DateTime.Now;
+            tpl.CreatedAt = DateTime.UtcNow;
 
             _ctx.SeedTemplates.Add(tpl);
             saved++;
@@ -307,7 +307,7 @@ JD描述: {rawJd ?? "（缺失）"}
                 SalaryMax = gj.SalaryMax > 0 ? (int)gj.SalaryMax : null,
                 Status = 1,
                 HrId = 1,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
 
             _ctx.Jobs.Add(job);
@@ -317,7 +317,7 @@ JD描述: {rawJd ?? "（缺失）"}
             tpl.CurrentInstances++;
         }
 
-        tpl.UpdatedAt = DateTime.Now;
+        tpl.UpdatedAt = DateTime.UtcNow;
         await _ctx.SaveChangesAsync();
 
         return jobs;

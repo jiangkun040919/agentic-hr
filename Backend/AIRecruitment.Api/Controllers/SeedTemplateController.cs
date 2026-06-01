@@ -84,7 +84,7 @@ public class SeedTemplateController : ControllerBase
             ExcludeKeywords = data.ExcludeKeywords,
             SourcePlatforms = data.SourcePlatforms,
             MaxInstances = data.MaxInstances,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.SeedTemplates.Add(template);
@@ -115,7 +115,7 @@ public class SeedTemplateController : ControllerBase
         t.ExcludeKeywords = data.ExcludeKeywords;
         t.SourcePlatforms = data.SourcePlatforms;
         t.MaxInstances = data.MaxInstances;
-        t.UpdatedAt = DateTime.Now;
+        t.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
         return Ok(new { code = 200, message = "更新成功" });
@@ -209,8 +209,12 @@ public class SeedTemplateController : ControllerBase
     /// <summary>清空所有岗位数据 - 用SET NOCHECK绕过外键</summary>
     [HttpPost("clear-all-jobs")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> ClearAllJobs()
+    public async Task<IActionResult> ClearAllJobs([FromBody] ClearAllJobsRequest request)
     {
+        if (request == null || !request.Confirm)
+        {
+            return BadRequest(new { code = 400, message = "请确认操作：请求体需包含 { \"confirm\": true }" });
+        }
         try
         {
             await _context.Database.ExecuteSqlRawAsync(@"

@@ -24,7 +24,7 @@ public class JobDiscoveryService
     /// </summary>
     public async Task<EmergingJobReport> DiscoverEmergingJobsAsync()
     {
-        var report = new EmergingJobReport { GeneratedAt = DateTime.Now };
+        var report = new EmergingJobReport { GeneratedAt = DateTime.UtcNow };
 
         // 1. 从数据库收集所有岗位的技能要求
         var allJobs = await _db.Jobs.Where(j => j.Status == 1).ToListAsync();
@@ -86,7 +86,7 @@ public class JobDiscoveryService
                                     PlusSkills = item.GetProperty("plusSkills").EnumerateArray().Select(e => e.GetString()!).ToList(),
                                     Scenarios = item.GetProperty("scenarios").GetString() ?? "",
                                     DemandLevel = item.GetProperty("demandLevel").GetString() ?? "中",
-                                    DiscoveredAt = DateTime.Now,
+                                    DiscoveredAt = DateTime.UtcNow,
                                     SourceSkills = emergingSkills.Take(5).ToList()
                                 });
                             }
@@ -113,7 +113,7 @@ public class JobDiscoveryService
     /// </summary>
     public async Task<JobEvolutionReport> AnalyzeJobEvolutionAsync(string jobTitle)
     {
-        var report = new JobEvolutionReport { JobTitle = jobTitle, AnalyzedAt = DateTime.Now };
+        var report = new JobEvolutionReport { JobTitle = jobTitle, AnalyzedAt = DateTime.UtcNow };
 
         // 查询图谱快照对比
         var snapshots = await _db.GraphSnapshots
@@ -238,7 +238,7 @@ public class JobDiscoveryService
     }
 
     private static DiscoveredJob MakeDiscovery(string name, string resp, List<string> req, List<string> plus, string scenarios, string demand, List<string> source)
-        => new() { Name = name, Responsibilities = resp, RequiredSkills = req, PlusSkills = plus, Scenarios = scenarios, DemandLevel = demand, SourceSkills = source, DiscoveredAt = DateTime.Now };
+        => new() { Name = name, Responsibilities = resp, RequiredSkills = req, PlusSkills = plus, Scenarios = scenarios, DemandLevel = demand, SourceSkills = source, DiscoveredAt = DateTime.UtcNow };
 }
 
 // ========== DTOs ==========

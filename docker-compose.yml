@@ -17,7 +17,7 @@ services:
     volumes:
       - sqldata:/var/opt/mssql
     healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "AiRecruitment@2024" -Q "SELECT 1"
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${MSSQL_SA_PASSWORD:-AiRecruitment@2024}" -Q "SELECT 1"
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,7 +52,7 @@ services:
       - neo4jdata:/data
       - neo4jlogs:/logs
     healthcheck:
-      test: ["CMD-SHELL", "echo 'RETURN 1' | cypher-shell -u neo4j -p password || exit 1"]
+      test: ["CMD-SHELL", "echo 'RETURN 1' | cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-password} || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 8

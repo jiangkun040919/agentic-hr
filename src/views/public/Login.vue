@@ -79,8 +79,10 @@ const handleLogin = async () => {
       ElMessage.success('登录成功')
       if (userStore.isHR) router.push('/admin/dashboard')
       else router.push('/')
-    } catch {
-      ElMessage.error('登录失败，请检查用户名和密码')
+    } catch (err: any) {
+      // 全局拦截器已包装error：业务错误为 new Error(serverMsg)，HTTP错误为 AxiosError
+      const msg = err?.response?.data?.message || err?.message || '登录失败，请检查用户名和密码'
+      ElMessage.error(msg)
     } finally {
       loading.value = false
     }

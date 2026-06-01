@@ -207,7 +207,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { updateProfile } from '@/api/auth'
 import { request } from '@/utils/request'
@@ -226,6 +226,14 @@ const form = reactive({
   education: '', workYears: undefined as number | undefined,
   resumeContent: '', resumeUrl: '',
 })
+
+// 追踪表单是否有未保存的修改
+const formDirty = ref(false)
+watch(
+  () => [form.realName, form.phone, form.email, form.education, form.workYears, form.resumeContent, form.resumeUrl],
+  () => { formDirty.value = true },
+  { deep: false }
+)
 
 const jobsLoading = ref(false)
 const recommendResult = ref<any>(null)
@@ -339,12 +347,12 @@ const handleFileSelect = async (e: Event) => {
         console.log('[上传] 刷新用户信息...')
         await userStore.fetchUserInfo()
         console.log('[上传] 刷新后 userInfo:', userStore.userInfo)
-        syncUserInfoToForm()
+        syncUserInfoToForm(true)
         console.log('[上传] 表单同步后:', { resumeUrl: form.resumeUrl, resumeContent: form.resumeContent?.substring(0, 50) })
         ElMessage.success('简历上传成功，已自动保存')
       } catch (err: any) {
         console.error('自动保存失败:', err)
-        ElMessage.warning('简历已上传，但保存失败: ' + (err?.response?.data?.message || err?.message || '网络错误，请手动点击保存'))
+        ElMessage.warning('简历已上传，但保存失败: ' + (err?.message || '保存失败，请手动点击保存'))
       }
     } else {
       ElMessage.error((res as any).message || '上传失败')
@@ -368,7 +376,8 @@ const readFileAsBase64 = (file: File): Promise<string> => {
 }
 
 // 从 store 同步用户信息到表单（不覆盖已编辑的值）
-function syncUserInfoToForm() {
+function syncUserInfoToForm(force = false) {
+  if (!force && formDirty.value) return
   const info = userStore.userInfo
   if (!info) return
   form.username = info.username || ''
@@ -379,6 +388,7 @@ function syncUserInfoToForm() {
   form.workYears = (info as any).workYears ?? 0
   form.resumeContent = (info as any).resumeContent || ''
   form.resumeUrl = (info as any).resumeUrl || ''
+  if (force) formDirty.value = false
 }
 
 // 页面加载时拉取最新数据
@@ -403,10 +413,10 @@ const handleSave = async () => {
       resumeContent: form.resumeContent, resumeUrl: form.resumeUrl
     })
     await userStore.fetchUserInfo()
-    syncUserInfoToForm()
+    syncUserInfoToForm(true)
     ElMessage.success('保存成功')
   } catch (error: any) {
-    const msg = error?.response?.data?.message || error?.message || '保存失败'
+    const msg = error?.message || '保存失败'
     ElMessage.error(msg)
   }
   finally { saving.value = false }

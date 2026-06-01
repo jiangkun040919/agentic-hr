@@ -131,7 +131,7 @@ public class JobService : IJobService
             Status = data.Status,
             HrId = hrId,
             ExpiredAt = data.ExpiredAt,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.Jobs.Add(job);
@@ -167,7 +167,7 @@ public class JobService : IJobService
         job.HeadCount = data.HeadCount;
         job.Status = data.Status;
         job.ExpiredAt = data.ExpiredAt;
-        job.UpdatedAt = DateTime.Now;
+        job.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
         await _cache.RemoveByPrefixAsync("jobs:list:default");
@@ -201,7 +201,7 @@ public class JobService : IJobService
         if (job == null) throw new Exception("岗位不存在");
 
         job.Status = status;
-        job.UpdatedAt = DateTime.Now;
+        job.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         await _cache.RemoveByPrefixAsync("jobs:list:default");
     }
@@ -263,7 +263,7 @@ public class JobService : IJobService
                 HeadCount = item.HeadCount ?? 1,
                 Status = 1,
                 HrId = 1,
-                CreatedAt = DateTime.Now.AddDays(-rng.Next(0, 30))
+                CreatedAt = DateTime.UtcNow.AddDays(-rng.Next(0, 30))
             };
 
             _context.Jobs.Add(job);

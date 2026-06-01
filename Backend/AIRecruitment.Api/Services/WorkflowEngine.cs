@@ -75,7 +75,7 @@ public class WorkflowEngine : IWorkflowEngine
             if (curStep.NextSteps.Length == 0)
             {
                 instance.Status = 2;
-                instance.CompletedAt = DateTime.Now;
+                instance.CompletedAt = DateTime.UtcNow;
                 await _db.SaveChangesAsync();
                 await NotifyAsync(instance, curStep, true);
                 return instance;
@@ -121,7 +121,7 @@ public class WorkflowEngine : IWorkflowEngine
             StepName = step.StepName,
             Action = step.StepType,
             Status = 1,
-            StartedAt = DateTime.Now
+            StartedAt = DateTime.UtcNow
         };
         _db.WorkflowStepLogs.Add(log);
         await _db.SaveChangesAsync();
@@ -138,7 +138,7 @@ public class WorkflowEngine : IWorkflowEngine
 
             log.Status = result.Success ? 2 : 3;
             log.ResultJson = JsonSerializer.Serialize(result.Data);
-            log.CompletedAt = DateTime.Now;
+            log.CompletedAt = DateTime.UtcNow;
 
             if (result.Success)
             {
@@ -160,7 +160,7 @@ public class WorkflowEngine : IWorkflowEngine
                 else
                 {
                     instance.Status = 2;
-                    instance.CompletedAt = DateTime.Now;
+                    instance.CompletedAt = DateTime.UtcNow;
                 }
 
                 await _db.SaveChangesAsync();
@@ -178,7 +178,7 @@ public class WorkflowEngine : IWorkflowEngine
         {
             log.Status = 3;
             log.ResultJson = ex.Message;
-            log.CompletedAt = DateTime.Now;
+            log.CompletedAt = DateTime.UtcNow;
             instance.Status = 3;
             instance.ErrorMessage = ex.Message;
             await _db.SaveChangesAsync();

@@ -65,7 +65,7 @@ public class UserController : ControllerBase
             Phone = request.Phone?.Trim(),
             Email = request.Email?.Trim(),
             Status = 1,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.SysUsers.Add(user);

@@ -2,6 +2,18 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import Cookies from 'js-cookie'
 
+// 从JWT token中解析payload
+function decodeToken(token: string): { role?: string; [key: string]: any } | null {
+  try {
+    const payloadBase64 = token.split('.')[1]
+    if (!payloadBase64) return null
+    const payloadJson = atob(payloadBase64)
+    return JSON.parse(payloadJson)
+  } catch {
+    return null
+  }
+}
+
 // 公共布局
 import PublicLayout from '@/layouts/PublicLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
@@ -28,6 +40,8 @@ import InterviewManagement from '@/views/admin/InterviewManagement.vue'
 import Profile from '@/views/admin/Profile.vue'
 import CommonInterviewerSetting from '@/views/admin/CommonInterviewerSetting.vue'
 import CompliancePage from '@/views/admin/CompliancePage.vue'
+import BenchmarkDashboard from '@/views/admin/BenchmarkDashboard.vue'
+import ResumeManagement from '@/views/admin/ResumeManagement.vue'
 
 // 知识图谱
 import KnowledgeGraph from '@/views/admin/KnowledgeGraph.vue'
@@ -98,6 +112,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'discovered-jobs', redirect: '/admin/jobs' },
       // ── 知识图谱 ──
       { path: 'knowledge-graph', name: 'KnowledgeGraph', component: KnowledgeGraph, meta: { title: '知识图谱', requiresAuth: true, role: 'hr' } },
+      { path: 'benchmark', name: 'BenchmarkDashboard', component: BenchmarkDashboard, meta: { title: '评测仪表盘', requiresAuth: true, role: 'hr' } },
+      { path: 'resume-management', name: 'ResumeManagement', component: ResumeManagement, meta: { title: '简历管理', requiresAuth: true, role: 'hr' } },
     ]
   },
 ]
@@ -111,7 +127,9 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   // 与请求拦截器保持一致：优先 Cookie，其次 localStorage
   const token = Cookies.get('token') || localStorage.getItem('token')
-  const role = localStorage.getItem('role')
+  // 从JWT token payload中解析角色，失败时回退到localStorage
+  const tokenPayload = token ? decodeToken(token) : null
+  const role = tokenPayload?.role || localStorage.getItem('role')
 
   // 公开页面直接放行
   if (to.meta.public) {

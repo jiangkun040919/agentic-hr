@@ -140,9 +140,9 @@ const loadTransparentMatch = async () => {
   finally { matchLoading.value = false }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const id = Number(route.params.id)
-  jobStore.fetchJobDetail(id)
+  await jobStore.fetchJobDetail(id)
 })
 
 const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD')

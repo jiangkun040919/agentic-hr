@@ -239,20 +239,26 @@ onActivated(() => {
 const fetchList = async () => {
   loading.value = true
   try {
-    const res = await getAIInterviewList({
+    // 传递 status 参数给后端（后端若支持则服务端过滤；不支持则忽略，客户端兜底）
+    const apiParams: any = {
       page: searchParams.page,
       pageSize: searchParams.pageSize,
       keyword: keyword.value || undefined
-    })
+    }
+    if (statusFilter.value >= 0) {
+      apiParams.status = statusFilter.value
+    }
+
+    const res = await getAIInterviewList(apiParams)
 
     // 响应拦截器已解包，兼容多种返回格式
     const data = Array.isArray(res) ? res : (res?.data || res?.data?.data || res || [])
     const list = Array.isArray(data) ? data : []
 
     if (statusFilter.value >= 0) {
-      const filtered = list.filter((s: any) => s.status === statusFilter.value)
-      sessions.value = filtered
-      total.value = filtered.length
+      // 客户端兜底过滤，但 total 保持原始总数（避免分页错乱）
+      sessions.value = list.filter((s: any) => s.status === statusFilter.value)
+      total.value = list.length
     } else {
       sessions.value = list
       total.value = list.length

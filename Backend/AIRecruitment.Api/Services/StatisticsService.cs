@@ -28,7 +28,7 @@ public class StatisticsService : IStatisticsService
 
     public async Task<DashboardResponse> GetDashboardDataAsync(int? hrId)
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var today = now.Date;
         var thisWeek = today.AddDays(-(int)today.DayOfWeek);
 
@@ -178,7 +178,7 @@ public class StatisticsService : IStatisticsService
         var labels = new List<string>();
         var deliveryData = new List<int>();
         var hiredData = new List<int>();
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
 
         for (int i = days - 1; i >= 0; i--)
         {
@@ -325,7 +325,7 @@ public class StatisticsService : IStatisticsService
 
     public async Task<List<HireRateItem>> GetHireRateDataAsync(int hrId, string dimension)
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var result = new List<HireRateItem>();
 
         if (dimension == "day")

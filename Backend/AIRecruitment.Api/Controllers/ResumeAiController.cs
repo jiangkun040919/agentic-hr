@@ -130,7 +130,7 @@ public class ResumeAiController : ControllerBase
             WorkExperience = new List<WorkExp>(),
             Projects = new List<ResumeProject>(),
             EducationHistory = new List<EduHistory>(),
-            AnalysisMode = "本地解析(AI暂不可用)", AnalyzedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm")
+            AnalysisMode = "本地解析(AI暂不可用)", AnalyzedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
         };
     }
 

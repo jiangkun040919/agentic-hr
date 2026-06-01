@@ -81,13 +81,14 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { register as registerApi } from '@/api/auth'
+import { useUserStore } from '@/stores/user'
 import { User, UserFilled, Lock, Phone, Message, Briefcase } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import StarfieldBackground from '@/components/StarfieldBackground.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const form = reactive({
@@ -113,9 +114,9 @@ const handleRegister = async () => {
     if (!valid) return
     loading.value = true
     try {
-      await registerApi({ ...form, confirmPassword: undefined } as any)
-      ElMessage.success('注册成功，请登录')
-      router.push('/login')
+      await userStore.register({ ...form, confirmPassword: undefined } as any)
+      ElMessage.success('注册成功')
+      router.push('/')
     } catch {
       ElMessage.error('注册失败，请稍后重试')
     } finally {

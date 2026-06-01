@@ -315,7 +315,7 @@ public class GraphController : ControllerBase
             }
             catch { }
 
-            return Ok(new { code = 200, data = new { answer, relatedSkills, queriedAt = DateTime.Now } });
+            return Ok(new { code = 200, data = new { answer, relatedSkills, queriedAt = DateTime.UtcNow } });
         }
         catch (Exception ex)
         {
@@ -352,7 +352,7 @@ public class GraphController : ControllerBase
 
             var report = new MarketReport
             {
-                GeneratedAt = DateTime.Now,
+                GeneratedAt = DateTime.UtcNow,
                 TotalActiveJobs = totalJobs,
                 DepartmentDistribution = deptDist.ToDictionary(d => d.dept, d => d.count),
                 CityDistribution = cityDist.ToDictionary(c => c.city, c => c.count),
@@ -390,7 +390,7 @@ public class GraphController : ControllerBase
     {
         try
         {
-            var report = new AccuracyEvaluation { EvaluatedAt = DateTime.Now };
+            var report = new AccuracyEvaluation { EvaluatedAt = DateTime.UtcNow };
 
             // 简历解析准确率 — 基于预置测试数据
             var resumeTests = AccuracyTestData.ResumeParseTests;

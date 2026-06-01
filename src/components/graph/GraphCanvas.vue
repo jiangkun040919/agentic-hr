@@ -84,7 +84,7 @@ const initGraph = () => {
         fill: typeColors[data.type] || typeColors.default,
         stroke: '#fff',
         lineWidth: 2,
-        labelText: data.label || data.id,
+        labelText: data.properties?.name || data.label || data.id,
         labelFill: '#333',
         labelFontSize: 12,
         size: Math.max((data.size || 30), 20)

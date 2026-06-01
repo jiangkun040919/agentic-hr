@@ -63,7 +63,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "开始面试失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -97,7 +97,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "提交回答失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -125,7 +125,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "结束面试失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -141,7 +141,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取面试结果失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -175,7 +175,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取会话失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -214,7 +214,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取候选人面试记录失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -253,7 +253,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取面试记录失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -282,7 +282,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取对话记录失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
     /// <summary>候选人：语音转文字（MiniMax Speech 2.8 ASR）</summary>
@@ -467,7 +467,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "语音开始面试失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -505,7 +505,7 @@ public class AIInterviewController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "语音回答处理失败");
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 

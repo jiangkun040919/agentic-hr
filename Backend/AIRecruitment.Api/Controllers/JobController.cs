@@ -72,7 +72,7 @@ public class JobController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"[UpdateJob Error] id={id}, error={ex.Message}, stack={ex.StackTrace}");
-            return StatusCode(500, new { code = 500, message = ex.Message });
+            return StatusCode(500, new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -120,7 +120,7 @@ public class JobController : ControllerBase
         }
         catch (Exception ex)
         {
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -143,7 +143,7 @@ public class JobController : ControllerBase
             var count = await _jobService.BatchImportAsync(items);
             return Ok(new { code = 200, message = $"成功导入 {count} 条，跳过 {items.Count - count} 条重复", data = new { imported = count } });
         }
-        catch (Exception ex) { return Ok(new { code = 500, message = ex.Message }); }
+        catch (Exception ex) { return Ok(new { code = 500, message = "服务器内部错误" }); }
     }
 
     [HttpGet("dept-stats")]

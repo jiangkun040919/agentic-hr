@@ -214,12 +214,16 @@ onMounted(async () => {
     loading.value = false
     return
   }
+  // 分别获取状态和结果，各自独立 try-catch
   try {
-    const [statusRes, resultRes] = await Promise.all([
-      getAISessionStatus(sessionId),
-      getAIInterviewResult(sessionId)
-    ])
+    const statusRes = await getAISessionStatus(sessionId)
     reportData.value = statusRes || {}
+  } catch (e) {
+    console.error('加载面试状态失败', e)
+  }
+
+  try {
+    const resultRes = await getAIInterviewResult(sessionId)
     if (resultRes) {
       messages.value = resultRes.messages || []
       // 补充 scoresJson / totalScore（result 接口可能更完整）
@@ -237,7 +241,7 @@ onMounted(async () => {
       }
     }
   } catch (e) {
-    console.error('加载面试报告失败', e)
+    console.error('加载面试结果失败', e)
   } finally {
     loading.value = false
   }

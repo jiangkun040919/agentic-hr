@@ -37,7 +37,7 @@ public class AIInterviewSession
     public DateTime? EndTime { get; set; }
 
     /// <summary>创建时间</summary>
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>面试对话JSON（完整记录）</summary>
     public string? TranscriptJson { get; set; }
@@ -82,7 +82,7 @@ public class AIInterviewMessage
     public int OrderIndex { get; set; }
 
     /// <summary>创建时间</summary>
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("SessionId")]
     public AIInterviewSession? Session { get; set; }

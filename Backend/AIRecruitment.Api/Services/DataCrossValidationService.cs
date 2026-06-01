@@ -23,7 +23,7 @@ public class DataCrossValidationService
     /// </summary>
     public async Task<CrossValidationReport> CrossValidateAsync(List<RawJD> jdsFromPlatforms)
     {
-        var report = new CrossValidationReport { AnalyzedAt = DateTime.Now };
+        var report = new CrossValidationReport { AnalyzedAt = DateTime.UtcNow };
 
         foreach (var jd in jdsFromPlatforms)
         {
@@ -123,7 +123,7 @@ public class DataCrossValidationService
                         NiceToHaveSkills = DeserializeSkills(result.niceToHaveSkills),
                         LevelEstimate = result.levelEstimate?.ToString() ?? "中级",
                         Source = jd.Source,
-                        CleanedAt = DateTime.Now
+                        CleanedAt = DateTime.UtcNow
                     });
                     continue;
                 }
@@ -131,7 +131,7 @@ public class DataCrossValidationService
             catch { }
 
             // 降级：保留原数据
-            cleaned.Add(new CleanJD { OriginalTitle = jd.Title, StandardizedTitle = jd.Title, Source = jd.Source, CleanedAt = DateTime.Now });
+            cleaned.Add(new CleanJD { OriginalTitle = jd.Title, StandardizedTitle = jd.Title, Source = jd.Source, CleanedAt = DateTime.UtcNow });
         }
 
         return cleaned;

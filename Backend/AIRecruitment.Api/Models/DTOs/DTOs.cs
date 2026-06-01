@@ -219,3 +219,8 @@ public record EnrichJobRequest(
     decimal? SalaryMax = null
 );
 
+public class ClearAllJobsRequest
+{
+    public bool Confirm { get; set; }
+}
+

@@ -38,7 +38,7 @@ public class DataCollectionService
     /// </summary>
     public async Task<CollectionReport> RunETLPipelineAsync()
     {
-        var report = new CollectionReport { StartedAt = DateTime.Now };
+        var report = new CollectionReport { StartedAt = DateTime.UtcNow };
 
         // Phase 1: 从各数据源采集岗位数据
         var rawJobs = new List<RawJobData>();
@@ -75,7 +75,7 @@ public class DataCollectionService
             }
         }
 
-        report.CompletedAt = DateTime.Now;
+        report.CompletedAt = DateTime.UtcNow;
         _logger.LogInformation("ETL 完成: 采集 {a} → 清洗后 {b} → 入图谱 {c}",
             report.TotalCollected, report.AfterDedup, report.GraphIngested);
 
@@ -114,7 +114,7 @@ public class DataCollectionService
         foreach (var job in results)
         {
             job.Source = sourceType;
-            job.CollectedAt = DateTime.Now;
+            job.CollectedAt = DateTime.UtcNow;
         }
 
         return results;

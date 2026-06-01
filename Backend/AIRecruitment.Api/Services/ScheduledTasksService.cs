@@ -20,7 +20,7 @@ public class ScheduledTasksService
     public async Task AutoCloseExpiredJobs()
     {
         var expiredJobs = await _context.Jobs
-            .Where(j => j.Status == 1 && j.ExpiredAt != null && j.ExpiredAt < DateTime.Now)
+            .Where(j => j.Status == 1 && j.ExpiredAt != null && j.ExpiredAt < DateTime.UtcNow)
             .ToListAsync();
 
         foreach (var job in expiredJobs)
@@ -36,7 +36,7 @@ public class ScheduledTasksService
     /// <summary>提醒 HR 处理超过 3 天未查看的候选人</summary>
     public async Task RemindStaleCandidates()
     {
-        var threeDaysAgo = DateTime.Now.AddDays(-3);
+        var threeDaysAgo = DateTime.UtcNow.AddDays(-3);
         var staleDeliveries = await _context.Deliveries
             .Include(d => d.Job)
             .Include(d => d.Candidate)
@@ -54,7 +54,7 @@ public class ScheduledTasksService
                 Type = "delivery",
                 Title = "待处理候选人提醒",
                 Content = $"您有 {count} 位候选人超过 3 天未处理，请及时查看简历",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             _context.Notifications.Add(notification);
             _logger.LogInformation("[定时任务] HR(ID={hrId}) 有 {count} 位候选人待处理", group.Key, count);
@@ -67,7 +67,7 @@ public class ScheduledTasksService
     /// <summary>生成一周招聘数据摘要</summary>
     public async Task GenerateWeeklyReport()
     {
-        var weekAgo = DateTime.Now.AddDays(-7);
+        var weekAgo = DateTime.UtcNow.AddDays(-7);
         var hrIds = await _context.SysUsers
             .Where(u => u.Role == "hr")
             .Select(u => u.UserId)
@@ -91,7 +91,7 @@ public class ScheduledTasksService
                           $"其中 {interviewed} 人进入面试，" +
                           $"入职 {hired} 人。" +
                           (deliveries.Count == 0 ? "本周暂无新投递。" : "请登录系统查看详情。"),
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             _context.Notifications.Add(notification);
         }
@@ -106,7 +106,7 @@ public class ScheduledTasksService
         if (_graph == null) return;
         try
         {
-            var period = DateTime.Now.ToString("yyyy-MM");
+            var period = DateTime.UtcNow.ToString("yyyy-MM");
             var snapshots = await _graph.TakeSnapshotAsync(_context, period);
             _logger.LogInformation("[定时任务] 图谱快照已保存: {count}个岗位, period={period}", snapshots.Count, period);
         }

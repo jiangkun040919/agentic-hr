@@ -295,7 +295,7 @@ public class AIService : IAIService
             existing.SkillsTags = ExtractSkills(resultJson);
             existing.WorkExperience = ExtractWorkExperience(resultJson);
             existing.Projects = ExtractProjects(resultJson);
-            existing.CreatedAt = DateTime.Now;
+            existing.CreatedAt = DateTime.UtcNow;
         }
         else
         {
@@ -304,7 +304,7 @@ public class AIService : IAIService
                 DeliveryId = deliveryId, CandidateId = delivery.CandidateId,
                 ParsedJson = resultJson, SkillsTags = ExtractSkills(resultJson),
                 WorkExperience = ExtractWorkExperience(resultJson), Projects = ExtractProjects(resultJson),
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             });
         }
         await _context.SaveChangesAsync();
@@ -352,7 +352,7 @@ public class AIService : IAIService
                 growthPotential = p3?.growthPotential?.ToString() ?? "",
                 extractionQuality = p1?.extractionQuality?.overallConfidence?.ToString() ?? "unknown",
                 analysisMode = "三遍AI分析",
-                analyzedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm")
+                analyzedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
             });
         }
         catch
@@ -792,7 +792,7 @@ public class AIService : IAIService
             JobId = delivery.JobId,
             QuestionsJson = JsonConvert.SerializeObject(questions),
             Category = "technical,behavioral,scenario",
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.AIInterviewQuestions.Add(aiQuestion);
@@ -852,7 +852,7 @@ public class AIService : IAIService
                 Period = period,
                 PipelineData = JsonConvert.SerializeObject(pipeline),
                 Recommendations = JsonConvert.SerializeObject(recommendations),
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.AIRecruitmentInsights.Add(insight);

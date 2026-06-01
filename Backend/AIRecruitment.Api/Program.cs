@@ -215,7 +215,7 @@ try
             Description = "AI招聘全链路自动化",
             StepsJson = steps,
             IsActive = true,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         });
         db.SysConfigs.Add(new SysConfig { ConfigKey = "WorkflowDefinitions_Seeded", ConfigValue = "true", Description = "Workflow definition seeded" });
         db.SaveChanges();
@@ -228,7 +228,7 @@ app.UseAppExceptionHandler();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseStaticFiles(); // 允许访问 wwwroot（简历文件下载等）
-app.UseCors("AllowAll");
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHub<NotificationHub>("/hubs/notification");
@@ -238,5 +238,9 @@ app.Run();
 
 public class HangfireDashboardAuthorizationFilter : IDashboardAuthorizationFilter
 {
-    public bool Authorize(DashboardContext context) => true;
+    public bool Authorize(DashboardContext context)
+    {
+        var httpContext = context.GetHttpContext();
+        return httpContext.User.IsInRole("admin");
+    }
 }

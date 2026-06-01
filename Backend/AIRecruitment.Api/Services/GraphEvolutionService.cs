@@ -56,8 +56,8 @@ public class GraphEvolutionService
     /// </summary>
     public async Task<EvolutionCycleReport> RunEvolutionCycleAsync()
     {
-        var report = new EvolutionCycleReport { StartedAt = DateTime.Now };
-        var now = DateTime.Now;
+        var report = new EvolutionCycleReport { StartedAt = DateTime.UtcNow };
+        var now = DateTime.UtcNow;
         var period = $"{now.Year}-Q{(now.Month - 1) / 3 + 1}";
 
         try
@@ -101,7 +101,7 @@ public class GraphEvolutionService
             }
             catch { report.AISummary = null; }
 
-            report.CompletedAt = DateTime.Now;
+            report.CompletedAt = DateTime.UtcNow;
             report.Success = true;
             _logger.LogInformation("[Evolution] 周期完成: {period}, 耗时 {elapsed:F1}s",
                 period, (report.CompletedAt - report.StartedAt).TotalSeconds);

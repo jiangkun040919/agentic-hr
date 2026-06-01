@@ -107,7 +107,7 @@ public class EnhancedMatchingService
 
         return new EnhancedMatchResult(
             job.Title, overallScore, dimensions, gapResult,
-            learningPath, verification, suggestions, DateTime.Now);
+            learningPath, verification, suggestions, DateTime.UtcNow);
     }
 
     /// <summary>
@@ -122,7 +122,7 @@ public class EnhancedMatchingService
         var result = new UnifiedMatchResult
         {
             JobTitle = job.Title,
-            MatchedAt = DateTime.Now
+            MatchedAt = DateTime.UtcNow
         };
 
         // ── 通道 1: 规则引擎（可解释的基准线）──
@@ -228,7 +228,7 @@ public class EnhancedMatchingService
     /// <summary>执行批量测试：验证系统准确率</summary>
     public async Task<AccuracyReport> RunAccuracyTestAsync(List<TestPair> testPairs)
     {
-        var report = new AccuracyReport { TotalTests = testPairs.Count, StartedAt = DateTime.Now };
+        var report = new AccuracyReport { TotalTests = testPairs.Count, StartedAt = DateTime.UtcNow };
         foreach (var pair in testPairs)
         {
             try
@@ -241,7 +241,7 @@ public class EnhancedMatchingService
             catch { report.Inaccurate++; }
         }
         report.Accuracy = report.TotalTests > 0 ? (double)report.Accurate / report.TotalTests * 100 : 0;
-        report.CompletedAt = DateTime.Now;
+        report.CompletedAt = DateTime.UtcNow;
         return report;
     }
 

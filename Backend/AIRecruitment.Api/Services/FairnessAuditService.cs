@@ -20,7 +20,7 @@ public class FairnessAuditService
 
     public async Task<FairnessAuditReport> RunAuditAsync()
     {
-        var report = new FairnessAuditReport { GeneratedAt = DateTime.Now };
+        var report = new FairnessAuditReport { GeneratedAt = DateTime.UtcNow };
 
         // 获取所有有匹配数据的投递
         var deliveries = await _context.Deliveries

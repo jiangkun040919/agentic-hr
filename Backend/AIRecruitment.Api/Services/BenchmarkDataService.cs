@@ -162,7 +162,7 @@ public class BenchmarkDataService
     /// <summary>执行三率准确率测试</summary>
     public async Task<BenchmarkReport> RunAccuracyBenchmarkAsync()
     {
-        var report = new BenchmarkReport { StartedAt = DateTime.Now };
+        var report = new BenchmarkReport { StartedAt = DateTime.UtcNow };
 
         // 1. JD解析准确率测试
         report.JDParseResults = await TestJDParseAccuracy();
@@ -173,7 +173,7 @@ public class BenchmarkDataService
         // 3. 人岗匹配准确率测试
         report.MatchingResults = await TestMatchingAccuracy();
 
-        report.CompletedAt = DateTime.Now;
+        report.CompletedAt = DateTime.UtcNow;
         return report;
     }
 

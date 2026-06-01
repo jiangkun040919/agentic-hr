@@ -122,7 +122,7 @@ public class DeliveryService : IDeliveryService
                 Education = data.Education,
                 WorkYears = data.WorkYears,
                 ResumeUrl = data.ResumeUrl,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             _context.Candidates.Add(candidate);
             await _context.SaveChangesAsync();
@@ -135,7 +135,7 @@ public class DeliveryService : IDeliveryService
             CandidateId = candidate.CandidateId,
             HrId = job.HrId,
             Status = 0,
-            DeliverTime = DateTime.Now,
+            DeliverTime = DateTime.UtcNow,
             ContactName = data.CandidateName,
             ContactPhone = data.Phone,
             ContactEmail = data.Email,
@@ -169,7 +169,7 @@ public class DeliveryService : IDeliveryService
         if (delivery == null) throw new Exception("投递记录不存在");
 
         delivery.Status = status;
-        delivery.UpdateTime = DateTime.Now;
+        delivery.UpdateTime = DateTime.UtcNow;
         delivery.Remark = remark;
         await _context.SaveChangesAsync();
     }
@@ -235,7 +235,7 @@ public class DeliveryService : IDeliveryService
             delivery.ContactResumeUrl = data.ResumeUrl;
         }
 
-        delivery.UpdateTime = DateTime.Now;
+        delivery.UpdateTime = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         return new DeliveryResponse(
@@ -256,7 +256,7 @@ public class DeliveryService : IDeliveryService
 
         delivery.AllowAIInterview = allow;
         delivery.AIInterviewDeadline = deadline;
-        delivery.UpdateTime = DateTime.Now;
+        delivery.UpdateTime = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         // ═══ 发送通知给候选人 ═══
@@ -322,7 +322,7 @@ public class DeliveryService : IDeliveryService
         if (delivery.Status != 2) throw new Exception("当前状态不是【面试中】，无法开始实习");
 
         delivery.Status = 3;
-        delivery.UpdateTime = DateTime.Now;
+        delivery.UpdateTime = DateTime.UtcNow;
         delivery.Remark = $"实习岗位：{req.Position ?? delivery.Job?.Title}；开始日期：{req.StartDate:yyyy-MM-dd}；导师：{req.Mentor ?? "-"}";
 
         _context.SysOperLogs.Add(new SysOperLog
@@ -331,7 +331,7 @@ public class DeliveryService : IDeliveryService
             Module = "Delivery",
             Action = "StartInternship",
             Detail = $"DeliveryId={id} 开始实习",
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         });
 
         await _context.SaveChangesAsync();
@@ -344,7 +344,7 @@ public class DeliveryService : IDeliveryService
         if (delivery.Status != 3) throw new Exception("当前状态不是【实习中】，无法转正");
 
         delivery.Status = 4;
-        delivery.UpdateTime = DateTime.Now;
+        delivery.UpdateTime = DateTime.UtcNow;
         delivery.Remark = $"正式职位：{req.Position ?? delivery.Job?.Title}；入职日期：{req.HireDate:yyyy-MM-dd}；薪资：{req.Salary?.ToString() ?? "-"}K";
 
         _context.SysOperLogs.Add(new SysOperLog
@@ -353,7 +353,7 @@ public class DeliveryService : IDeliveryService
             Module = "Delivery",
             Action = "FormalHire",
             Detail = $"DeliveryId={id} 正式入职",
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         });
 
         await _context.SaveChangesAsync();

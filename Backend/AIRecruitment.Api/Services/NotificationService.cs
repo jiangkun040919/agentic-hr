@@ -59,7 +59,7 @@ public class NotificationService : INotificationService
         if (notification != null && !notification.IsRead)
         {
             notification.IsRead = true;
-            notification.ReadAt = DateTime.Now;
+            notification.ReadAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }
@@ -69,7 +69,7 @@ public class NotificationService : INotificationService
         var unread = await _context.Notifications
             .Where(n => n.UserId == userId && !n.IsRead)
             .ToListAsync();
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         unread.ForEach(n => { n.IsRead = true; n.ReadAt = now; });
         await _context.SaveChangesAsync();
     }
@@ -84,7 +84,7 @@ public class NotificationService : INotificationService
             Content = content,
             RelatedId = relatedId,
             RelatedType = relatedType,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
         _context.Notifications.Add(notification);
         await _context.SaveChangesAsync();

@@ -12,7 +12,7 @@ public class WorkflowDefinition
     public string? Description { get; set; }
     public string StepsJson { get; set; } = "[]";
     public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 [Table("WorkflowInstance")]
@@ -26,7 +26,7 @@ public class WorkflowInstance
     public string CurrentStep { get; set; } = string.Empty;
     public int Status { get; set; }
     public string StateJson { get; set; } = "{}";
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
     public string? ErrorMessage { get; set; }
 
@@ -44,7 +44,7 @@ public class WorkflowStepLog
     public string Action { get; set; } = string.Empty;
     public int Status { get; set; }
     public string? ResultJson { get; set; }
-    public DateTime StartedAt { get; set; } = DateTime.Now;
+    public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
 
     public WorkflowInstance? Instance { get; set; }

@@ -115,7 +115,7 @@ public class EvolutionDemoService
                     JobName = snap.JobName,
                     Period = snap.Period,
                     SkillsJson = JsonConvert.SerializeObject(snap.Skills),
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 });
             }
         }

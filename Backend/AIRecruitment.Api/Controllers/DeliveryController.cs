@@ -275,7 +275,7 @@ public class DeliveryController : ControllerBase
                 suggestedQuestions = new[] { "请描述您最有挑战性的项目经验", "您对未来3年的职业规划是什么？", "您如何处理团队中的技术分歧？" }
             };
 
-            return Ok(new { code = 200, data = new { candidates = sorted, recommendation, comparedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") } });
+            return Ok(new { code = 200, data = new { candidates = sorted, recommendation, comparedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") } });
         }
         catch (Exception ex)
         {

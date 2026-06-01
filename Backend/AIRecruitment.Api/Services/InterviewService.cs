@@ -86,7 +86,7 @@ public class InterviewService : IInterviewService
         if (delivery == null) throw new Exception("投递记录不存在");
         
         delivery.Status = 2;
-        delivery.UpdateTime = DateTime.Now;
+        delivery.UpdateTime = DateTime.UtcNow;
 
         var interviewer = await _context.SysUsers.FindAsync(data.InterviewerId);
         int actualInterviewerId = interviewer != null ? data.InterviewerId : delivery.HrId;
@@ -98,7 +98,7 @@ public class InterviewService : IInterviewService
             ScheduleTime = data.ScheduleTime,
             Location = data.Location,
             Status = 0,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.Interviews.Add(interview);
@@ -153,7 +153,7 @@ public class InterviewService : IInterviewService
         if (!string.IsNullOrEmpty(data.Remark))
             interview.Result = data.Remark;
 
-        interview.UpdatedAt = DateTime.Now;
+        interview.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
     }
 
@@ -163,7 +163,7 @@ public class InterviewService : IInterviewService
         if (interview == null) throw new Exception("面试记录不存在");
 
         interview.Status = status;
-        interview.UpdatedAt = DateTime.Now;
+        interview.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
     }
 
@@ -175,13 +175,13 @@ public class InterviewService : IInterviewService
         interview.Result = result;
         interview.Record = record;
         interview.Status = result == "通过" ? 2 : (result == "不通过" ? 3 : 1);
-        interview.UpdatedAt = DateTime.Now;
+        interview.UpdatedAt = DateTime.UtcNow;
 
         var delivery = await _context.Deliveries.FindAsync(interview.DeliveryId);
         if (delivery != null)
         {
             delivery.Status = result == "通过" ? 3 : 4;
-            delivery.UpdateTime = DateTime.Now;
+            delivery.UpdateTime = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
@@ -193,7 +193,7 @@ public class InterviewService : IInterviewService
         if (interview == null) throw new Exception("面试记录不存在");
 
         interview.Status = 4;
-        interview.UpdatedAt = DateTime.Now;
+        interview.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
     }
 

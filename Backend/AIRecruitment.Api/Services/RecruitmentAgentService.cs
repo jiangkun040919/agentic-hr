@@ -35,7 +35,7 @@ public class RecruitmentAgentService
         var report = new AgentExecutionReport
         {
             UserRequest = userRequest,
-            StartedAt = DateTime.Now,
+            StartedAt = DateTime.UtcNow,
             Steps = new List<AgentStep>()
         };
 
@@ -46,7 +46,7 @@ public class RecruitmentAgentService
             if (plan == null || plan.Actions.Count == 0)
             {
                 report.Summary = "无法理解您的需求，请提供更具体的招聘要求（如岗位名称、经验要求等）";
-                report.CompletedAt = DateTime.Now;
+                report.CompletedAt = DateTime.UtcNow;
                 return report;
             }
 
@@ -69,7 +69,7 @@ public class RecruitmentAgentService
             report.Summary = $"执行过程中出现错误：{ex.Message}。请重试或联系管理员。";
         }
 
-        report.CompletedAt = DateTime.Now;
+        report.CompletedAt = DateTime.UtcNow;
         report.TotalDuration = (int)(report.CompletedAt - report.StartedAt).TotalSeconds;
         return report;
     }
@@ -131,7 +131,7 @@ public class RecruitmentAgentService
     /// <summary>执行单个动作</summary>
     private async Task<AgentStep> ExecuteActionAsync(AgentAction action)
     {
-        var step = new AgentStep { Action = action.Action, StartedAt = DateTime.Now };
+        var step = new AgentStep { Action = action.Action, StartedAt = DateTime.UtcNow };
         try
         {
             switch (action.Action)
@@ -200,7 +200,7 @@ public class RecruitmentAgentService
             step.Success = false;
             step.Error = ex.Message;
         }
-        step.CompletedAt = DateTime.Now;
+        step.CompletedAt = DateTime.UtcNow;
         step.Duration = (int)(step.CompletedAt - step.StartedAt).TotalSeconds;
         return step;
     }

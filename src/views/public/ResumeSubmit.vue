@@ -151,8 +151,8 @@ const canSubmit = computed(() => {
   return !!resumeFile.value
 })
 
-onMounted(() => {
-  jobStore.fetchJobDetail(jobId.value)
+onMounted(async () => {
+  await jobStore.fetchJobDetail(jobId.value)
 })
 
 const formatFileSize = (bytes: number) => {

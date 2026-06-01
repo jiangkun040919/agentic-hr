@@ -43,8 +43,8 @@ public class DiscoveredJobController : ControllerBase
         if (job == null) return NotFound(new { code = 404, message = "记录不存在" });
 
         job.Status = "approved";
-        job.ReviewedAt = DateTime.Now;
-        job.ReviewedBy = User.FindFirst("username")?.Value ?? "admin";
+        job.ReviewedAt = DateTime.UtcNow;
+        job.ReviewedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "admin";
 
         // 自动推断部门分类
         var dept = InferDept(job.Title);
@@ -60,7 +60,7 @@ public class DiscoveredJobController : ControllerBase
             MaxInstances = 5,
             CurrentInstances = 0,
             IsActive = true,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
         _context.SeedTemplates.Add(template);
         await _context.SaveChangesAsync(); // 先保存获取 templateId
@@ -78,7 +78,7 @@ public class DiscoveredJobController : ControllerBase
             HeadCount = 1,
             Status = 1,
             HrId = 1,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
         _context.Jobs.Add(newJob);
         await _context.SaveChangesAsync();
@@ -129,8 +129,8 @@ public class DiscoveredJobController : ControllerBase
         if (job == null) return NotFound(new { code = 404, message = "记录不存在" });
 
         job.Status = "rejected";
-        job.ReviewedAt = DateTime.Now;
-        job.ReviewedBy = User.FindFirst("username")?.Value ?? "admin";
+        job.ReviewedAt = DateTime.UtcNow;
+        job.ReviewedBy = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "admin";
 
         await _context.SaveChangesAsync();
         return Ok(new { code = 200, message = "已驳回" });

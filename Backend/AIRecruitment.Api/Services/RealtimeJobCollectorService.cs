@@ -55,7 +55,7 @@ public class RealtimeJobCollectorService
     /// </summary>
     public async Task<RealtimeCollectReport> CollectAsync()
     {
-        var report = new RealtimeCollectReport { StartedAt = DateTime.Now };
+        var report = new RealtimeCollectReport { StartedAt = DateTime.UtcNow };
         var rng = new Random();
         var allJobs = new List<ScrapedJob>();
 
@@ -122,7 +122,7 @@ public class RealtimeJobCollectorService
                 Title = job.Title,
                 Dept = dept,
                 Location = job.Location ?? "北京",
-                JD = $"[真实采集:{job.Source} {DateTime.Now:yyyy-MM-dd}]\n" +
+                JD = $"[真实采集:{job.Source} {DateTime.UtcNow:yyyy-MM-dd}]\n" +
                      $"详情: https://jobs.51job.com/all/{job.CompanyId ?? ""}\n" +
                      $"职位: {job.Title}\n" +
                      $"公司: {job.Company}\n" +
@@ -134,9 +134,9 @@ public class RealtimeJobCollectorService
                 HeadCount = rng.Next(1, 5),
                 Status = 1,
                 HrId = 2,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
                 UpdatedAt = null,
-                ExpiredAt = DateTime.Now.AddMonths(3)
+                ExpiredAt = DateTime.UtcNow.AddMonths(3)
             };
 
             _db.Jobs.Add(entity);
@@ -146,7 +146,7 @@ public class RealtimeJobCollectorService
 
         await _db.SaveChangesAsync();
 
-        report.CompletedAt = DateTime.Now;
+        report.CompletedAt = DateTime.UtcNow;
         _logger.LogInformation(
             "✅ 实时采集完成: +{new}条新岗位 (51job:{p51}, 智联:{pzl}), 城市={cities}, 数据库总计={total}",
             report.Inserted, report.PlatformCount, report.AICount,

@@ -63,7 +63,7 @@ public class ProcessMonitorService : IProcessMonitorService
                     Module = "ProcessMonitor",
                     Action = $"{processPath} {arguments}",
                     Detail = $"ExitCode={result.ExitCode}, Duration={result.Duration.TotalSeconds:F1}s, Output={result.StandardOutput[..Math.Min(result.StandardOutput.Length, 500)]}",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 });
                 await db.SaveChangesAsync();
             }

@@ -4,6 +4,18 @@ import router from '@/router'
 import { login as loginApi, register as registerApi, getUserInfo } from '@/api/auth'
 import type { LoginParams, RegisterParams, UserInfo } from '@/api/auth/types'
 
+// 从JWT token payload中解析role字段
+function decodeTokenRole(token: string): string {
+  try {
+    const payloadBase64 = token.split('.')[1]
+    if (!payloadBase64) return ''
+    const payload = JSON.parse(atob(payloadBase64))
+    return payload?.role || ''
+  } catch {
+    return ''
+  }
+}
+
 export const useUserStore = defineStore('user', () => {
   // 状态 — 初始化时从 localStorage 恢复
   const token = ref<string>(localStorage.getItem('token') || '')
@@ -23,11 +35,13 @@ export const useUserStore = defineStore('user', () => {
     const res = await loginApi(params)
     token.value = res.token
     localStorage.setItem('token', res.token)
-    localStorage.setItem('role', res.role)
+    // 优先使用后端返回的role，缺失时从JWT payload中解析
+    const role = res.role || decodeTokenRole(res.token)
+    localStorage.setItem('role', role)
     if (res.userId) {
       localStorage.setItem('userId', String(res.userId))
     }
-    roles.value = [res.role]
+    roles.value = [role]
     await fetchUserInfo()
     return res
   }
@@ -37,11 +51,13 @@ export const useUserStore = defineStore('user', () => {
     const res = await registerApi(params)
     token.value = res.token
     localStorage.setItem('token', res.token)
-    localStorage.setItem('role', res.role)
+    // 优先使用后端返回的role，缺失时从JWT payload中解析
+    const role = res.role || decodeTokenRole(res.token)
+    localStorage.setItem('role', role)
     if (res.userId) {
       localStorage.setItem('userId', String(res.userId))
     }
-    roles.value = [res.role]
+    roles.value = [role]
     await fetchUserInfo()
     return res
   }

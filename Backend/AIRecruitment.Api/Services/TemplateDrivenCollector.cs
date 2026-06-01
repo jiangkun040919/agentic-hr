@@ -89,7 +89,7 @@ public class TemplateDrivenCollector
                     HeadCount = 1,
                     Status = 1,
                     HrId = 1,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
                 _ctx.Jobs.Add(job);
                 await _ctx.SaveChangesAsync();
@@ -112,7 +112,7 @@ public class TemplateDrivenCollector
         if (toGenerate <= 0)
         {
             // 爬取已满配额，直接返回
-            tpl.UpdatedAt = DateTime.Now;
+            tpl.UpdatedAt = DateTime.UtcNow;
             await _ctx.SaveChangesAsync();
             await _cache.RemoveByPrefixAsync("jobs:list:");
             result.NewJobsDetected = await _ctx.DiscoveredJobs.CountAsync(d => d.Status == "pending");
@@ -187,7 +187,7 @@ public class TemplateDrivenCollector
                     HeadCount = rng.Next(1, 4),
                     Status = 1,
                     HrId = 1,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
                 _ctx.Jobs.Add(job);
                 await _ctx.SaveChangesAsync();
@@ -203,7 +203,7 @@ public class TemplateDrivenCollector
             if (generated == 0)
                 throw new Exception("AI生成的岗位全部被去重过滤");
 
-            tpl.UpdatedAt = DateTime.Now;
+            tpl.UpdatedAt = DateTime.UtcNow;
             await _ctx.SaveChangesAsync();
             await _cache.RemoveByPrefixAsync("jobs:list:");
 
@@ -304,7 +304,7 @@ public class TemplateDrivenCollector
                     SourcePlatform = raw.SourcePlatform ?? "采集系统",
                     SimilarityScore = confidence,
                     Status = "pending",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 });
                 await _ctx.SaveChangesAsync();
                 result.NewJobsDetected = 1;
@@ -346,12 +346,12 @@ public class TemplateDrivenCollector
             SalaryMax = enriched.SalaryMax.HasValue ? (int)enriched.SalaryMax.Value : raw.SalaryMax.HasValue ? (int)raw.SalaryMax.Value : null,
             Status = 1,
             HrId = 1,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _ctx.Jobs.Add(job);
         template.CurrentInstances++;
-        template.UpdatedAt = DateTime.Now;
+        template.UpdatedAt = DateTime.UtcNow;
         await _ctx.SaveChangesAsync();
 
         await _cache.RemoveByPrefixAsync("jobs:list:");
@@ -403,7 +403,7 @@ public class TemplateDrivenCollector
                 MatchedTemplateId = sourceTemplateId,
                 SimilarityScore = maxSim,
                 Status = "pending",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             });
             await _ctx.SaveChangesAsync();
         }

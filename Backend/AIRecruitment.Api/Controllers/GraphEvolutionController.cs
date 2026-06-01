@@ -50,7 +50,7 @@ public class GraphEvolutionController : ControllerBase
         try
         {
             var currentSkills = await _evolution.ExtractSkillFrequenciesFromDBAsync();
-            var n = DateTime.Now; var q = (n.Month - 1) / 3 + 1; q--; var y = n.Year;
+            var n = DateTime.UtcNow; var q = (n.Month - 1) / 3 + 1; q--; var y = n.Year;
             if (q < 1) { q = 4; y--; } var prevPeriod = $"{y}-Q{q}";
             var prevFreq = new Dictionary<string, int>();
             var db = HttpContext.RequestServices.GetRequiredService<AppDbContext>();

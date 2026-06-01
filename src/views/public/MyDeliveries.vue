@@ -227,7 +227,7 @@ onMounted(async () => {
 })
 
 // keep-alive 场景下激活时刷新
-onActivated(() => { fetchAISessions() })
+onActivated(() => { resumeStore.fetchMyDeliveries(); fetchAISessions() })
 
 // 从 AIInterview 等页面返回时自动刷新 sessions
 watch(() => route.name, (name) => {
@@ -271,7 +271,7 @@ const submitEdit = async () => {
 }
 
 const startAIInterview = (delivery: any) => {
-  const userId = localStorage.getItem('userId') || localStorage.getItem('candidateId') || ''
+  const userId = localStorage.getItem('userId') || ''
   if (!userId) { ElMessage.warning('请重新登录'); router.push('/login'); return }
   router.push({ name: 'AIInterview', params: { jobId: String(delivery.jobId), deliveryId: String(delivery.deliveryId), candidateId: String(userId) } })
 }

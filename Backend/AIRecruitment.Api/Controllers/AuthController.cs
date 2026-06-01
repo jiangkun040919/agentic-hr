@@ -30,7 +30,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { code = 400, message = ex.Message });
+            return BadRequest(new { code = 400, message = "服务器内部错误" });
         }
     }
 
@@ -44,7 +44,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { code = 400, message = ex.Message });
+            return BadRequest(new { code = 400, message = "服务器内部错误" });
         }
     }
 
@@ -69,7 +69,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { code = 400, message = ex.Message });
+            return BadRequest(new { code = 400, message = "服务器内部错误" });
         }
     }
 
@@ -103,7 +103,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { code = 400, message = ex.Message });
+            return BadRequest(new { code = 400, message = "服务器内部错误" });
         }
     }
 
@@ -126,7 +126,7 @@ public class AuthController : ControllerBase
             Directory.CreateDirectory(uploadsDir);
 
             var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-            var safeName = $"{userId}_{DateTime.Now:yyyyMMddHHmmss}_{fileName}";
+            var safeName = $"{userId}_{DateTime.UtcNow:yyyyMMddHHmmss}_{fileName}";
             var filePath = Path.Combine(uploadsDir, safeName);
 
             var fileBytes = Convert.FromBase64String(request.FileBase64);
@@ -151,7 +151,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return Ok(new { code = 500, message = ex.Message });
+            return Ok(new { code = 500, message = "服务器内部错误" });
         }
     }
 
@@ -176,7 +176,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { code = 500, message = $"删除失败: {ex.Message}" });
+            return StatusCode(500, new { code = 500, message = "服务器内部错误" });
         }
     }
 
