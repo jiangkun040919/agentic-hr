@@ -61,6 +61,9 @@ public class DeliveryService : IDeliveryService
             query = query.Where(d => d.JobId == p.JobId);
         if (p.Status.HasValue)
             query = query.Where(d => d.Status == p.Status);
+        else
+            // 默认不显示已淘汰（status=5）的记录，除非主动筛选
+            query = query.Where(d => d.Status != 5);
         if (!string.IsNullOrEmpty(p.Keyword))
             query = query.Where(d =>
                 d.ContactName.Contains(p.Keyword) || d.ContactPhone.Contains(p.Keyword) ||
@@ -171,6 +174,38 @@ public class DeliveryService : IDeliveryService
         delivery.Status = status;
         delivery.UpdateTime = DateTime.UtcNow;
         delivery.Remark = remark;
+
+        // 淘汰/删除时清理所有关联的AI分析数据
+        if (status == 5)
+        {
+            // 删除原始简历文件
+            if (!string.IsNullOrEmpty(delivery.ContactResumeUrl) && System.IO.File.Exists(delivery.ContactResumeUrl))
+            {
+                try { System.IO.File.Delete(delivery.ContactResumeUrl); } catch { /* 文件被占用则跳过 */ }
+            }
+
+            // 删除AI评分
+            var aiScores = await _context.AIScores.Where(s => s.DeliveryId == id).ToListAsync();
+            _context.AIScores.RemoveRange(aiScores);
+
+            // 删除AI简历分析
+            var aiAnalyses = await _context.AIResumeAnalyses.Where(a => a.DeliveryId == id).ToListAsync();
+            _context.AIResumeAnalyses.RemoveRange(aiAnalyses);
+
+            // 删除AI面试题
+            var aiQuestions = await _context.AIInterviewQuestions.Where(q => q.DeliveryId == id).ToListAsync();
+            _context.AIInterviewQuestions.RemoveRange(aiQuestions);
+
+            // 删除AI面试对话记录（先删消息，再删会话）
+            var sessions = await _context.AIInterviewSessions.Where(s => s.DeliveryId == id).ToListAsync();
+            foreach (var session in sessions)
+            {
+                var messages = await _context.AIInterviewMessages.Where(m => m.SessionId == session.SessionId).ToListAsync();
+                _context.AIInterviewMessages.RemoveRange(messages);
+            }
+            _context.AIInterviewSessions.RemoveRange(sessions);
+        }
+
         await _context.SaveChangesAsync();
     }
 

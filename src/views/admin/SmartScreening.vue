@@ -273,6 +273,11 @@ const total = computed(() => resumeStore.total)
 const jobs = computed(() => jobStore.jobs)
 
 const viewMode = ref<'table' | 'kanban'>('table')
+
+// 切换视图时重新拉数据，看板需要全量管道数据
+watch(viewMode, () => {
+  fetchResumes()
+})
 const aiLoading = ref<number | null>(null)
 const sortingLoading = ref(false)
 const tableRef = ref()
@@ -313,7 +318,11 @@ onMounted(async () => {
 })
 
 const fetchResumes = () => {
-  resumeStore.fetchResumes(searchParams)
+  // 看板模式下始终拉取全部管道状态，忽略状态筛选
+  const params = viewMode.value === 'kanban'
+    ? { ...searchParams, status: undefined }
+    : searchParams
+  resumeStore.fetchResumes(params)
 }
 
 // ── 批量操作 ──
