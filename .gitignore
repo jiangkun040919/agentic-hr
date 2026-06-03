@@ -81,3 +81,7 @@ Backend/create_ai_interview_tables.sql
 Backend/seed_templates.sql
 SQL_Update_AI_Interview_Permission.sql
 完整项目交付/
+
+# Runtime files
+.running_pids.txt
+frontend_log.txt

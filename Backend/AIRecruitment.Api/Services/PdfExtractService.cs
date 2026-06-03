@@ -17,7 +17,10 @@ public class PdfExtractService : IPdfExtractService
 
     public PdfExtractService()
     {
-        _pythonPath = @"C:\Users\Lenovo\AppData\Local\Python\bin\python.exe";
+        _pythonPath = @"C:\Users\Lenovo\AppData\Local\Python\pythoncore-3.14-64\python.exe";
+        // 备选路径
+        if (!File.Exists(_pythonPath))
+            _pythonPath = @"C:\Users\Lenovo\AppData\Local\Python\bin\python.exe";
         _tempDir = Path.Combine(Path.GetTempPath(), "ResumePDFs");
         _uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "resumes");
         Directory.CreateDirectory(_tempDir);
@@ -56,19 +59,77 @@ except Exception as e:
     print(f'ERR:{{e}}')";
         }
 
-        // PDF (default)
+        // PDF — 三层降级：pdfplumber → PyMuPDF → OCR
         return $@"
-import pdfplumber, json, sys
+import json, sys, re
+
+def is_garbled(text):
+    '''判断文本是否乱码：有效内容<20字符或中文占比异常低'''
+    if not text or len(text.strip()) < 20:
+        return True
+    stripped = text.strip()
+    cjk = len(re.findall(r'[\u4e00-\u9fff]', stripped))
+    total = len(re.sub(r'\s', '', stripped))
+    # 纯中文简历应 > 10% CJK；全英文简历不判乱码
+    if cjk == 0 and any(ord(c) > 127 for c in stripped):
+        return False  # 非中文内容，不判乱码
+    if cjk > 0 and total > 0 and cjk / total < 0.05:
+        return True
+    return False
+
+def extract_pdfplumber(path):
+    try:
+        import pdfplumber
+        with pdfplumber.open(path) as pdf:
+            parts = []
+            for page in pdf.pages:
+                t = page.extract_text()
+                if t: parts.append(t)
+            return '\n'.join(parts)
+    except: return ''
+
+def extract_fitz(path):
+    try:
+        import fitz
+        doc = fitz.open(path)
+        parts = []
+        for page in doc:
+            t = page.get_text()
+            if t: parts.append(t)
+        doc.close()
+        return '\n'.join(parts)
+    except: return ''
+
+def extract_ocr(path):
+    try:
+        import os as _os
+        # 设置中文语言包路径
+        _os.environ.setdefault('TESSDATA_PREFIX',
+            r'C:\Users\Lenovo\AppData\Local\Tesseract-OCR\tessdata')
+        from pdf2image import convert_from_path
+        import pytesseract
+        # 指定 tesseract 路径
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+        images = convert_from_path(path, first_page=3, last_page=3)
+        parts = []
+        for img in images:
+            t = pytesseract.image_to_string(img, lang='chi_sim+eng')
+            if t: parts.append(t)
+        return '\n'.join(parts)
+    except: return ''
+
 try:
-    with pdfplumber.open(sys.argv[1]) as pdf:
-        text = []
-        for page in pdf.pages:
-            t = page.extract_text()
-            if t: text.append(t)
-        full = '\n'.join(text)
+    full = extract_pdfplumber(sys.argv[1])
+    engine = 'pdfplumber'
+    if is_garbled(full):
+        full = extract_fitz(sys.argv[1])
+        engine = 'fitz'
+    if is_garbled(full):
+        full = extract_ocr(sys.argv[1])
+        engine = 'ocr'
     with open(r'{escapedOutput}', 'w', encoding='utf-8') as f:
-        json.dump({{'text': full}}, f, ensure_ascii=False)
-    print('OK')
+        json.dump({{'text': full, 'engine': engine}}, f, ensure_ascii=False)
+    print(f'OK:{{engine}}')
 except Exception as e:
     with open(r'{escapedOutput}', 'w', encoding='utf-8') as f:
         json.dump({{'error': str(e)}}, f)
@@ -98,8 +159,17 @@ except Exception as e:
         using var process = Process.Start(psi);
         if (process == null) return "";
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await process.WaitForExitAsync(cts.Token);
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await process.WaitForExitAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // 超时：杀掉进程，返回空文本
+            try { process.Kill(entireProcessTree: true); } catch { }
+            return "";
+        }
 
         if (File.Exists(outputFile))
         {

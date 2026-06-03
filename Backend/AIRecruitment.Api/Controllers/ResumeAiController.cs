@@ -121,17 +121,74 @@ public class ResumeAiController : ControllerBase
 
     private static ParseResult BuildFallbackParse(Delivery d)
     {
-        return new ParseResult
+        var text = d.ResumeText ?? "";
+        var result = new ParseResult
         {
-            Name = d.ContactName, Phone = d.ContactPhone, Email = d.ContactEmail ?? "",
+            Name = d.ContactName,
+            Phone = d.ContactPhone,
+            Email = d.ContactEmail ?? "",
             Education = new EducationInfo { Level = d.ContactEducation ?? "", Major = "", School = "" },
             WorkYears = d.ContactWorkYears ?? 0,
-            Skills = new List<ResumeSkill> { new() { Name = "简历解析中", Level = "熟练", Confidence = "inferred" } },
+            Skills = new List<ResumeSkill>(),
             WorkExperience = new List<WorkExp>(),
             Projects = new List<ResumeProject>(),
             EducationHistory = new List<EduHistory>(),
-            AnalysisMode = "本地解析(AI暂不可用)", AnalyzedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
+            AnalysisMode = "本地解析(AI暂不可用)",
+            AnalyzedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
         };
+
+        // 本地正则提取：从简历原文中抓取结构化信息
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            // 提取技能关键词
+            var skillDict = new Dictionary<string, string[]>
+            {
+                ["后端"] = new[] { "Java", "Spring", "SpringBoot", "Python", "Django", "Flask", "Go", "C#", ".NET", "Node.js", "Rust", "C++", "PHP" },
+                ["前端"] = new[] { "Vue", "React", "Angular", "TypeScript", "JavaScript", "HTML5", "CSS3", "小程序", "Flutter" },
+                ["数据"] = new[] { "MySQL", "PostgreSQL", "MongoDB", "Redis", "Elasticsearch", "Spark", "Hadoop", "Pandas" },
+                ["AI"] = new[] { "机器学习", "深度学习", "PyTorch", "TensorFlow", "NLP", "CV", "大模型", "RAG", "Agent" },
+                ["DevOps"] = new[] { "Docker", "Kubernetes", "Jenkins", "CI/CD", "Linux", "Git", "AWS", "阿里云" },
+            };
+
+            foreach (var (cat, keywords) in skillDict)
+            {
+                foreach (var kw in keywords)
+                {
+                    if (text.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                        result.Skills.Add(new ResumeSkill { Name = kw, Level = "熟练", Confidence = "inferred" });
+                }
+            }
+
+            // 提取学历
+            foreach (var edu in new[] { "博士", "硕士", "本科", "大专", "高中" })
+            {
+                if (text.Contains(edu))
+                {
+                    result.Education = new EducationInfo { Level = edu, Major = "", School = "" };
+                    break;
+                }
+            }
+
+            // 提取工作经验年限
+            var yearMatch = System.Text.RegularExpressions.Regex.Match(text, @"(\d+)\s*年.*?(经验|工作)");
+            if (yearMatch.Success && int.TryParse(yearMatch.Groups[1].Value, out var yrs))
+                result.WorkYears = yrs;
+
+            // 提取邮箱
+            var emailMatch = System.Text.RegularExpressions.Regex.Match(text, @"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}");
+            if (emailMatch.Success)
+                result.Email = emailMatch.Value;
+
+            // 提取手机号
+            var phoneMatch = System.Text.RegularExpressions.Regex.Match(text, @"1[3-9]\d{9}");
+            if (phoneMatch.Success)
+                result.Phone = phoneMatch.Value;
+        }
+
+        if (result.Skills.Count == 0)
+            result.Skills.Add(new ResumeSkill { Name = "文本解析中", Level = "熟练", Confidence = "inferred" });
+
+        return result;
     }
 
     private static MatchScoreResult BuildFallbackMatch(Candidate c)

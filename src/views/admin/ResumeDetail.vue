@@ -299,20 +299,64 @@
 
         <!-- ═══ 图谱证据链 ═══ -->
         <el-tab-pane label="图谱证据链" name="evidence-graph">
-          <div class="ai-tab-content" v-loading="evidenceGraphLoading">
+          <div class="evidence-chain-tab" v-loading="evidenceGraphLoading">
+            <!-- 可信度摘要条 -->
+            <div v-if="evidenceGraphReady" class="evidence-summary-bar">
+              <div class="summary-item">
+                <span class="summary-label">声明总数</span>
+                <span class="summary-value">{{ evidenceSummary.totalClaims }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">强证据</span>
+                <span class="summary-value" style="color:#67c23a">{{ evidenceSummary.strongClaims }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">待加强</span>
+                <span class="summary-value" style="color:#e6a23c">{{ evidenceSummary.mediumClaims }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">存疑</span>
+                <span class="summary-value" style="color:#f56c6c">{{ evidenceSummary.weakClaims }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">技能缺失</span>
+                <span class="summary-value" style="color:#f56c6c">{{ evidenceSummary.gaps }}</span>
+              </div>
+              <div class="summary-item summary-score">
+                <span class="summary-label">综合可信度</span>
+                <span class="summary-value" :style="{ color: evidenceSummary.overallScore >= 80 ? '#67c23a' : evidenceSummary.overallScore >= 50 ? '#e6a23c' : '#f56c6c' }">
+                  {{ evidenceSummary.overallScore }}%
+                </span>
+              </div>
+            </div>
+
+            <!-- 图谱主体 -->
             <GraphCanvas
               :nodes="evidenceGraphNodes"
               :edges="evidenceGraphEdges"
-              :height="400"
+              :height="560"
               :loading="evidenceGraphLoading"
               :error="evidenceGraphError"
+              :show-legend="true"
               @node-click="onEvidenceNodeClick"
             />
-            <div v-if="!evidenceGraphLoading && evidenceGraphNodes.length === 0" style="text-align:center;padding:40px;color:var(--color-text-secondary)">
-              <p>点击下方按钮加载图谱证据链</p>
-              <el-button type="primary" @click="loadEvidenceGraph" :loading="evidenceGraphLoading">
-                <el-icon><Connection /></el-icon> 加载证据链图谱
+
+            <!-- 空状态 -->
+            <div v-if="!evidenceGraphLoading && evidenceGraphNodes.length === 0" class="evidence-empty">
+              <el-icon :size="48" color="var(--color-text-placeholder)"><Connection /></el-icon>
+              <p>点击下方按钮，AI 将自动分析简历并构建证据链图谱</p>
+              <el-button type="primary" size="large" @click="loadEvidenceGraph" :loading="evidenceGraphLoading">
+                <el-icon><Connection /></el-icon> 构建证据链图谱
               </el-button>
+            </div>
+
+            <!-- AI 决策建议 -->
+            <div v-if="evidenceAiAdvice" class="evidence-ai-advice">
+              <div class="advice-header">
+                <el-icon><MagicStick /></el-icon>
+                <span>AI 决策建议</span>
+              </div>
+              <div class="advice-body">{{ evidenceAiAdvice }}</div>
             </div>
           </div>
         </el-tab-pane>
@@ -419,15 +463,6 @@
           </div>
         </el-collapse-item>
       </el-collapse>
-
-      <!-- 原始简历对照 -->
-      <div v-if="originalResumeContent" class="original-resume-section">
-        <div class="ors-header">
-          <span>📄 原始简历原文</span>
-          <span class="ors-hint">对照 AI 分析结果</span>
-        </div>
-        <div class="ors-content">{{ originalResumeContent }}</div>
-      </div>
     </div>
 
     <AIEnhancePanel :parseResult="parseResult" :matchResult="matchResult" :delivery="delivery" />
@@ -440,7 +475,6 @@
     <!-- 原始简历可拖动弹窗 -->
     <DraggableResumePopup
       :visible="showResumePopup"
-      :content="originalResumeContent"
       :delivery-id="delivery?.deliveryId"
       :resume-url="delivery?.resumeUrl"
       @close="showResumePopup = false"
@@ -456,7 +490,7 @@ import GraphCanvas from '@/components/graph/GraphCanvas.vue'
 import { useResumeStore } from '@/stores/resume'
 import { useResumeAiStore } from '@/stores/resume-ai'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Promotion, Medal, Connection, Odometer, Right } from '@element-plus/icons-vue'
+import { ArrowLeft, Promotion, Medal, Connection, Odometer, Right, MagicStick } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { updateResumeStatus, cancelDelivery, startInternship, formalHire, setAIInterviewPermission } from '@/api/delivery'
 import { explainMatch, riskRadar, whatIf } from '@/api/graph'
@@ -497,18 +531,45 @@ const evidenceGraphLoading = ref(false)
 const evidenceGraphError = ref('')
 const evidenceGraphNodes = ref<any[]>([])
 const evidenceGraphEdges = ref<any[]>([])
+const evidenceGraphReady = ref(false)
+const evidenceAiAdvice = ref('')
+const evidenceSummary = reactive({
+  totalClaims: 0,
+  strongClaims: 0,
+  mediumClaims: 0,
+  weakClaims: 0,
+  gaps: 0,
+  overallScore: 0
+})
 
 const loadEvidenceGraph = async () => {
   if (!delivery.value || evidenceGraphLoading.value) return
   evidenceGraphLoading.value = true
   evidenceGraphError.value = ''
   try {
-    // 先加载证据链数据
+    // 并行加载多个数据源
+    const tasks: Promise<any>[] = []
+
+    // 数据源1：可解释匹配报告
     if (!explainResult.value) {
-      const res = await explainMatch(delivery.value.candidateId || 0, delivery.value.jobId || 0) as any
-      explainResult.value = res.data || res
+      tasks.push(explainMatch(delivery.value.candidateId || 0, delivery.value.jobId || 0).then(res => {
+        explainResult.value = (res as any)?.data || res
+      }))
     }
+
+    // 数据源2：AI 简历解析结果（技能 + 项目经历）
+    if (!parseResult.value) {
+      tasks.push(loadParseResult())
+    }
+
+    // 数据源3：匹配评分
+    if (!matchResult.value) {
+      tasks.push(loadMatchResult())
+    }
+
+    await Promise.allSettled(tasks)
     buildEvidenceGraph()
+    evidenceGraphReady.value = true
   } catch (e: any) {
     evidenceGraphError.value = e.message || '图谱加载失败'
   } finally {
@@ -517,42 +578,282 @@ const loadEvidenceGraph = async () => {
 }
 
 const buildEvidenceGraph = () => {
-  const result = explainResult.value
-  if (!result) return
+  const explain = explainResult.value
+  const parse = parseResult.value
+  const match = matchResult.value
+  if (!explain && !parse) return
+
   const nodes: any[] = []
   const edges: any[] = []
+  let claimCount = 0
+  let strongCount = 0
+  let mediumCount = 0
+  let weakCount = 0
+  let gapCount = 0
 
-  // 候选人节点
-  nodes.push({ id: 'candidate', label: delivery.value?.candidateName || '候选人', type: 'Candidate', category: 'candidate', size: 50 })
-  // 岗位节点
-  nodes.push({ id: 'job', label: delivery.value?.jobTitle || '目标岗位', type: 'Job', category: 'job', size: 50 })
-  edges.push({ id: 'edge-cj', source: 'candidate', target: 'job', label: '投递' })
+  const resumeText = delivery.value?.resumeText || delivery.value?.resumeContent || ''
+  const projectTexts = (parse?.projects || []).map((p: any) => `${p.name || ''} ${p.description || ''} ${(p.techStack || []).join(' ')}`).join(' ')
+  const workTexts = (parse?.workExperience || []).map((w: any) => `${w.company || ''} ${w.title || ''} ${w.description || ''}`).join(' ')
+  const allResumeContext = `${resumeText} ${projectTexts} ${workTexts}`
 
-  // 已匹配技能
-  if (result.matchedSkills?.length) {
-    result.matchedSkills.forEach((m: any, i: number) => {
-      const sid = `matched-${i}`
-      nodes.push({ id: sid, label: m.skill || m, type: 'Skill', category: 'matched', size: 36 })
-      edges.push({ id: `c-${sid}`, source: 'candidate', target: sid, label: '掌握' })
-      edges.push({ id: `${sid}-j`, source: sid, target: 'job', label: m.evidence?.graphVerified ? '图谱验证' : '匹配' })
+  // ═══ 候选人中心节点 ═══
+  nodes.push({
+    id: 'candidate',
+    label: delivery.value?.candidateName || '候选人',
+    type: 'Candidate',
+    category: 'candidate',
+    size: 60,
+    detail: `${parse?.education?.level || ''} · ${parse?.workYears || '?'}年经验`
+  })
+
+  // ═══ 岗位节点 ═══
+  nodes.push({
+    id: 'job',
+    label: delivery.value?.jobTitle || '目标岗位',
+    type: 'Job',
+    category: 'job',
+    size: 56,
+    detail: `投递时间: ${delivery.value?.deliverTime ? formatDate(delivery.value.deliverTime) : '-'}`
+  })
+
+  // 候选人 → 岗位（投递关系）
+  edges.push({
+    id: 'edge-candidate-job',
+    source: 'candidate',
+    target: 'job',
+    label: '投递',
+    confidence: match?.overall || undefined,
+    lineWidth: 2,
+    edgeColor: match?.overall ? (match.overall >= 80 ? '#67C23A' : match.overall >= 50 ? '#E6A23C' : '#F56C6C') : '#C0C0C0'
+  })
+
+  // ═══ 声明层：技能声明 ═══
+  const allSkills = parse?.skills || []
+  const matchedSkillNames = new Set((explain?.matchedSkills || []).map((m: any) => (m.skill || '').toLowerCase()))
+
+  allSkills.forEach((skill: any, i: number) => {
+    const skillName = skill.name || skill.skill || (typeof skill === 'string' ? skill : '')
+    if (!skillName) return
+
+    const claimId = `claim-skill-${i}`
+    claimCount++
+
+    // 评估置信度：综合多个证据源
+    const evidences: string[] = []
+    let confidence = 50 // 基线
+
+    // 证据1：AI 解析时的置信度
+    if (skill.confidence === 'confirmed') {
+      confidence += 15
+      evidences.push('简历原文确认')
+    } else if (skill.confidence === 'inferred') {
+      confidence -= 5
+      evidences.push('上下文推断')
+    }
+
+    // 证据2：图谱验证（explainMatch 的结果）
+    const matchedItem = (explain?.matchedSkills || []).find((m: any) =>
+      (m.skill || '').toLowerCase() === skillName.toLowerCase()
+    )
+    if (matchedItem) {
+      confidence += 20
+      evidences.push('图谱验证通过')
+      if (matchedItem.evidence?.matchRate) {
+        evidences.push(`JD匹配度${matchedItem.evidence.matchRate}%`)
+      }
+    }
+
+    // 证据3：简历内部一致性（技能是否在项目/工作中出现过）
+    const inProjects = projectTexts.toLowerCase().includes(skillName.toLowerCase())
+    const inWork = workTexts.toLowerCase().includes(skillName.toLowerCase())
+    if (inProjects || inWork) {
+      confidence += 15
+      evidences.push(inProjects ? '项目中使用' : '工作中使用')
+    }
+
+    // 证据4：匹配评分中的技能分
+    if (match?.skillMatch) {
+      confidence = Math.round((confidence + match.skillMatch) / 2)
+    }
+
+    // 确定分类
+    confidence = Math.min(100, Math.max(0, confidence))
+    const category = confidence >= 80 ? 'claim-strong' : confidence >= 50 ? 'claim-medium' : 'claim-weak'
+    if (confidence >= 80) strongCount++
+    else if (confidence >= 50) mediumCount++
+    else weakCount++
+
+    nodes.push({
+      id: claimId,
+      label: skillName,
+      type: 'Claim',
+      category,
+      size: confidence >= 80 ? 44 : confidence >= 50 ? 38 : 32,
+      confidence,
+      source: `掌握程度: ${skill.level || '未知'}${skill.years ? ` · ${skill.years}年` : ''}`,
+      detail: evidences.length > 0 ? `证据: ${evidences.join('、')}` : '暂无外部证据'
+    })
+
+    // 候选人 → 声明
+    edges.push({
+      id: `edge-candidate-${claimId}`,
+      source: 'candidate',
+      target: claimId,
+      label: skill.level || '掌握',
+      confidence,
+      lineWidth: confidence >= 80 ? 3 : confidence >= 50 ? 2 : 1,
+      dashed: confidence < 50
+    })
+
+    // 声明 → 岗位（如果是 JD 需要的技能）
+    if (matchedItem) {
+      edges.push({
+        id: `edge-${claimId}-job`,
+        source: claimId,
+        target: 'job',
+        label: confidence >= 80 ? '强匹配' : confidence >= 50 ? '匹配' : '弱匹配',
+        confidence,
+        lineWidth: confidence >= 80 ? 3 : confidence >= 50 ? 2 : 1,
+        dashed: confidence < 50
+      })
+    }
+
+    // 声明 → 证据节点（每个证据单独一个节点）
+    if (matchedItem?.evidence?.graphVerified) {
+      const evId = `ev-graph-${i}`
+      nodes.push({
+        id: evId,
+        label: '图谱验证',
+        type: 'Evidence',
+        category: 'evidence-graph',
+        size: 26,
+        source: 'Neo4j 知识图谱',
+        detail: '该技能在岗位知识图谱中被验证为相关技能'
+      })
+      edges.push({ id: `edge-${claimId}-${evId}`, source: claimId, target: evId, label: '验证', confidence: 90, lineWidth: 2 })
+    }
+
+    if (inProjects) {
+      const evId = `ev-project-${i}`
+      const matchedProject = (parse?.projects || []).find((p: any) => {
+        const pText = `${p.name || ''} ${p.description || ''} ${(p.techStack || []).join(' ')}`.toLowerCase()
+        return pText.includes(skillName.toLowerCase())
+      })
+      nodes.push({
+        id: evId,
+        label: matchedProject ? `项目: ${matchedProject.name?.slice(0, 12)}` : '项目中使用',
+        type: 'Evidence',
+        category: 'evidence-consistency',
+        size: 24,
+        source: '简历项目经历',
+        detail: matchedProject ? `在 "${matchedProject.name}" 项目中使用了该技能` : '在项目描述中提及'
+      })
+      edges.push({ id: `edge-${claimId}-${evId}`, source: claimId, target: evId, label: '项目佐证', confidence: 75, lineWidth: 1.5 })
+    }
+  })
+
+  // ═══ 声明层：经验声明 ═══
+  if (parse?.workExperience?.length) {
+    parse.workExperience.forEach((exp: any, i: number) => {
+      const claimId = `claim-exp-${i}`
+      claimCount++
+      const expConfidence = 60 // 经验声明默认中等置信度
+
+      nodes.push({
+        id: claimId,
+        label: `${exp.company || '?'} · ${exp.title || '?'}`,
+        type: 'Claim',
+        category: 'claim-medium',
+        size: 36,
+        confidence: expConfidence,
+        source: `${exp.startDate || '?'} ~ ${exp.endDate || '至今'}`,
+        detail: exp.description?.slice(0, 60) || ''
+      })
+
+      edges.push({
+        id: `edge-candidate-${claimId}`,
+        source: 'candidate',
+        target: claimId,
+        label: '任职',
+        confidence: expConfidence,
+        lineWidth: 2,
+        dashed: false
+      })
+
+      mediumCount++
     })
   }
 
-  // 技能差距
-  if (result.gapSkills?.length) {
-    result.gapSkills.forEach((g: any, i: number) => {
-      const sid = `gap-${i}`
-      nodes.push({ id: sid, label: g.skill || g, type: 'Skill', category: 'gap', size: 32 })
-      edges.push({ id: `${sid}-j`, source: sid, target: 'job', label: g.isCritical ? '关键缺失' : '待补足' })
+  // ═══ 声明层：学历声明 ═══
+  if (parse?.education) {
+    claimCount++
+    const eduConfidence = 70
+    nodes.push({
+      id: 'claim-edu',
+      label: `${parse.education.level || '?'} · ${parse.education.school || '?'}`,
+      type: 'Claim',
+      category: 'claim-medium',
+      size: 38,
+      confidence: eduConfidence,
+      source: `${parse.education.major || '-'}`,
+      detail: '学历信息来自简历'
+    })
+    edges.push({
+      id: 'edge-candidate-edu',
+      source: 'candidate',
+      target: 'claim-edu',
+      label: '学历',
+      confidence: eduConfidence,
+      lineWidth: 2
+    })
+    mediumCount++
+  }
+
+  // ═══ 差距层：缺失的 JD 技能 ═══
+  if (explain?.gapSkills?.length) {
+    explain.gapSkills.forEach((g: any, i: number) => {
+      const gapId = `gap-${i}`
+      gapCount++
+      nodes.push({
+        id: gapId,
+        label: g.skill || '?',
+        type: 'Gap',
+        category: g.isCritical ? 'gap-critical' : 'gap-normal',
+        size: g.isCritical ? 36 : 30,
+        source: g.isCritical ? '关键岗位要求' : '一般岗位要求',
+        detail: g.estimatedLearningTime ? `预计补足时间: ${g.estimatedLearningTime}` : ''
+      })
+      edges.push({
+        id: `edge-${gapId}-job`,
+        source: gapId,
+        target: 'job',
+        label: g.isCritical ? '关键缺失' : '待补足',
+        confidence: 20,
+        lineWidth: g.isCritical ? 2 : 1,
+        dashed: true,
+        edgeColor: g.isCritical ? '#F56C6C' : '#E6A23C'
+      })
     })
   }
 
+  // ═══ 更新数据 ═══
   evidenceGraphNodes.value = nodes
   evidenceGraphEdges.value = edges
+  evidenceAiAdvice.value = explain?.aiDecisionAdvice || ''
+
+  // 计算摘要
+  evidenceSummary.totalClaims = claimCount
+  evidenceSummary.strongClaims = strongCount
+  evidenceSummary.mediumClaims = mediumCount
+  evidenceSummary.weakClaims = weakCount
+  evidenceSummary.gaps = gapCount
+  evidenceSummary.overallScore = claimCount > 0
+    ? Math.round((strongCount * 90 + mediumCount * 60 + weakCount * 25) / claimCount)
+    : 0
 }
 
-const onEvidenceNodeClick = (nodeId: string, type: string) => {
-  // 点击节点不做特殊处理，图谱已经展示了所有信息
+const onEvidenceNodeClick = (nodeId: string, type: string, data: any) => {
+  // 点击节点时可以做侧边栏详情展示（未来扩展）
 }
 
 // ═══ 逐句对照 ═══
@@ -803,6 +1104,72 @@ const handleFormalHire = async () => {
 
 // ── 决策智能 ──
 .decision-section { margin-top: 8px; }
+
+// ── 图谱证据链 ──
+.evidence-chain-tab {
+  min-height: 300px;
+}
+.evidence-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, rgba(64,158,255,0.06), rgba(103,194,58,0.06));
+  border-radius: 10px;
+  margin-bottom: 16px;
+  .summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+    .summary-label {
+      font-size: 11px;
+      color: var(--color-text-secondary);
+      margin-bottom: 2px;
+    }
+    .summary-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--color-text-primary);
+    }
+  }
+  .summary-score {
+    margin-left: auto;
+    .summary-value {
+      font-size: 28px;
+    }
+  }
+}
+.evidence-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--color-text-secondary);
+  p {
+    margin: 16px 0;
+    font-size: 14px;
+  }
+}
+.evidence-ai-advice {
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: rgba(64,158,255,0.04);
+  border: 1px solid rgba(64,158,255,0.12);
+  border-radius: 10px;
+  .advice-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-primary);
+    margin-bottom: 10px;
+  }
+  .advice-body {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--color-text-regular);
+  }
+}
 
 // ── 逐句对照 + 竞争力排名 ──
 .extra-analysis {

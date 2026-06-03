@@ -10,11 +10,8 @@
       <div class="popup-header" @mousedown="startDrag">
         <span>📄 原始简历</span>
         <div class="popup-actions">
-          <!-- 视图切换 -->
+          <!-- 视图切换 — 仅保留原文件 -->
           <el-button-group v-if="deliveryId" size="small" class="view-toggle">
-            <el-button :type="viewMode === 'text' ? 'primary' : ''" @click.stop="viewMode = 'text'">
-              <el-icon><Document /></el-icon>文本
-            </el-button>
             <el-button :type="viewMode === 'file' ? 'primary' : ''" @click.stop="viewMode = 'file'">
               <el-icon><View /></el-icon>原文件
             </el-button>
@@ -31,18 +28,8 @@
         </div>
       </div>
       <div v-show="!minimized" class="popup-body">
-        <!-- 文本视图 -->
-        <div v-if="viewMode === 'text'">
-          <div v-if="!content" class="popup-empty">
-            <el-empty description="暂无简历原文" :image-size="40" />
-          </div>
-          <div v-else class="popup-content">
-            <pre>{{ content }}</pre>
-          </div>
-        </div>
-
         <!-- 原文件视图 -->
-        <div v-else class="file-preview-container" v-loading="fileLoading">
+        <div class="file-preview-container" v-loading="fileLoading">
           <template v-if="filePreviewUrl">
             <iframe
               :src="filePreviewUrl"
@@ -76,7 +63,7 @@ defineEmits<{ (e: 'close'): void }>()
 
 const popupRef = ref<HTMLElement>()
 const minimized = ref(false)
-const viewMode = ref<'text' | 'file'>('text')
+const viewMode = ref<'text' | 'file'>('file')
 const pos = reactive({ x: 0, y: 0 })
 let dragging = false
 let startX = 0, startY = 0
@@ -95,9 +82,9 @@ const isWord = computed(() => {
 const filePreviewUrl = ref('')
 const fileLoading = ref(false)
 
-// 切换到文件视图时加载文件
-watch(viewMode, async (mode) => {
-  if (mode === 'file' && props.deliveryId && !filePreviewUrl.value) {
+// 弹窗打开时自动加载文件预览
+watch(() => props.visible, async (isVisible) => {
+  if (isVisible && props.deliveryId && !filePreviewUrl.value) {
     await loadFileForPreview()
   }
 })

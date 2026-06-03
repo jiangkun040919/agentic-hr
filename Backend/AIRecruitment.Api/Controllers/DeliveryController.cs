@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using AIRecruitment.Api.Models.DTOs;
 using AIRecruitment.Api.Services;
 
@@ -11,11 +12,13 @@ public class DeliveryController : ControllerBase
 {
     private readonly IDeliveryService _deliveryService;
     private readonly IAIService _aiService;
+    private readonly AppDbContext _context;
 
-    public DeliveryController(IDeliveryService deliveryService, IAIService aiService)
+    public DeliveryController(IDeliveryService deliveryService, IAIService aiService, AppDbContext context)
     {
         _deliveryService = deliveryService;
         _aiService = aiService;
+        _context = context;
     }
 
     [HttpGet("list")]
@@ -187,12 +190,14 @@ public class DeliveryController : ControllerBase
 
             var pdfService = HttpContext.RequestServices.GetRequiredService<IPdfExtractService>();
             var (text, filePath) = await pdfService.ExtractBase64Async(request.FileBase64, fileName, id);
+
+            // 始终保存文件路径（即使文本提取失败）
+            if (!string.IsNullOrEmpty(filePath))
+                await _deliveryService.SaveResumeFilePathAsync(id, filePath);
+
             if (!string.IsNullOrEmpty(text))
             {
                 await _deliveryService.SaveResumeTextAsync(id, text);
-                // 同时保存原始文件路径
-                if (!string.IsNullOrEmpty(filePath))
-                    await _deliveryService.SaveResumeFilePathAsync(id, filePath);
                 var fileType = ext == ".pdf" ? "PDF" : "Word";
                 return Ok(new { code = 200, message = $"{fileType}解析成功，提取{text.Length}字", data = new { textLength = text.Length, hasFile = !string.IsNullOrEmpty(filePath) } });
             }
@@ -206,8 +211,21 @@ public class DeliveryController : ControllerBase
     [Authorize(Roles = "hr,admin")]
     public async Task<IActionResult> DownloadResume(int id)
     {
-        var detail = await _deliveryService.GetDeliveryDetailAsync(id);
-        var filePath = detail.ResumeUrl;
+        var delivery = await _context.Deliveries.FindAsync(id);
+        if (delivery == null)
+            return NotFound(new { code = 404, message = "投递记录不存在" });
+
+        // 优先用投递时上传的文件路径，其次用投递快照中的文件路径
+        var filePath = delivery.ContactResumeUrl;
+        if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
+        {
+            // 尝试从 Candidate 的 ResumeUrl 回退
+            var candidate = delivery.CandidateId > 0
+                ? await _context.Candidates.FindAsync(delivery.CandidateId)
+                : null;
+            filePath = candidate?.ResumeUrl;
+        }
+
         if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
             return NotFound(new { code = 404, message = "原始简历文件不存在，可能尚未上传或文件已丢失" });
 
@@ -281,6 +299,34 @@ public class DeliveryController : ControllerBase
         {
             return Ok(new { code = 500, message = ex.Message });
         }
+    }
+
+    /// <summary>一次性修复：将 ContactResumeUrl 从文件名修正为完整磁盘路径</summary>
+    [HttpPost("fix-resume-paths")]
+    [AllowAnonymous]
+    public async Task<IActionResult> FixResumePaths()
+    {
+        var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "resumes");
+        var deliveries = await _context.Deliveries.ToListAsync();
+        var fixedCount = 0;
+
+        foreach (var d in deliveries)
+        {
+            if (string.IsNullOrEmpty(d.ContactResumeUrl)) continue;
+            if (System.IO.File.Exists(d.ContactResumeUrl)) continue;
+
+            var matchingFiles = Directory.GetFiles(uploadsDir, $"{d.DeliveryId}_*");
+            if (matchingFiles.Length > 0)
+            {
+                d.ContactResumeUrl = matchingFiles.OrderByDescending(System.IO.File.GetLastWriteTime).First();
+                fixedCount++;
+            }
+        }
+
+        if (fixedCount > 0)
+            await _context.SaveChangesAsync();
+
+        return Ok(new { code = 200, message = $"已修复 {fixedCount} 条记录" });
     }
 }
 

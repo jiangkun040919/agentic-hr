@@ -48,6 +48,18 @@ public class DeliveryService : IDeliveryService
         );
     }
 
+    /// <summary>获取投递关联的简历文件路径（投递优先，候选人兜底）</summary>
+    private static string? GetResumeFilePath(Delivery d)
+    {
+        // 投递时上传的文件路径优先
+        if (!string.IsNullOrEmpty(d.ContactResumeUrl) && System.IO.File.Exists(d.ContactResumeUrl))
+            return d.ContactResumeUrl;
+        // 回退到候选人的简历
+        if (!string.IsNullOrEmpty(d.Candidate?.ResumeUrl) && System.IO.File.Exists(d.Candidate.ResumeUrl))
+            return d.Candidate.ResumeUrl;
+        return d.ContactResumeUrl; // 即使文件不存在也返回，让前端自己处理
+    }
+
     public async Task<PagedResponse<DeliveryResponse>> GetDeliveryListAsync(DeliveryListParams p)
     {
         var query = _context.Deliveries

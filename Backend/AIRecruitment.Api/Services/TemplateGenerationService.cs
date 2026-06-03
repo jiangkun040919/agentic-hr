@@ -194,6 +194,37 @@ JD描述: {rawJd ?? "（缺失）"}
             }
         }
 
+        // 归一化标题（去括号后缀、多余空格）后重试包含匹配
+        var normalized = NormalizeTitle(jobTitle);
+        if (normalized != titleLower)
+        {
+            foreach (var t in templates)
+            {
+                var tName = t.Name.ToLower();
+                if (normalized.Contains(tName) || tName.Contains(normalized))
+                {
+                    return (await _ctx.SeedTemplates.FindAsync(t.TemplateId), 0.8f);
+                }
+                var aliases = ParseJsonList(t.Aliases);
+                foreach (var alias in aliases)
+                {
+                    if (normalized.Contains(alias.ToLower()))
+                        return (await _ctx.SeedTemplates.FindAsync(t.TemplateId), 0.7f);
+                }
+            }
+        }
+
+        // 字符级模糊匹配（处理 typo，如 pathon → python）
+        var bestFuzzy = (template: (SeedTemplate?)null, confidence: 0f);
+        foreach (var t in templates)
+        {
+            var sim = CharSimilarity(normalized, t.Name.ToLower());
+            if (sim > bestFuzzy.confidence && sim >= 0.65f)
+                bestFuzzy = (await _ctx.SeedTemplates.FindAsync(t.TemplateId), sim * 0.9f);
+        }
+        if (bestFuzzy.template != null)
+            return bestFuzzy;
+
         // 没有精确匹配，调 LLM 做语义匹配
         try
         {
@@ -437,6 +468,35 @@ JD描述: {rawJd ?? "（缺失）"}
             SalaryMin = salaryMin,
             SalaryMax = salaryMax
         };
+    }
+
+    /// <summary>
+    /// 归一化岗位标题：去除中文/英文括号内的后缀（如"（ML平台方向）"）、多余空格
+    /// 例如: "高级Python开发工程师（ML平台方向）" → "高级python开发工程师"
+    /// </summary>
+    private static string NormalizeTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title)) return "";
+        var result = System.Text.RegularExpressions.Regex.Replace(title, @"[（(][^）)]*[）)]", "");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", "");
+        return result.ToLower().Trim();
+    }
+
+    /// <summary>
+    /// 字符级相似度：Dice coefficient，容忍 typo
+    /// 例如: "高级pathon开发工程师" vs "高级python开发工程师" → ~0.88
+    /// </summary>
+    private static float CharSimilarity(string a, string b)
+    {
+        if (a == b) return 1f;
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return 0f;
+        var setA = new HashSet<string>();
+        var setB = new HashSet<string>();
+        for (int i = 0; i < a.Length - 1; i++) setA.Add(a.Substring(i, 2));
+        for (int i = 0; i < b.Length - 1; i++) setB.Add(b.Substring(i, 2));
+        var intersection = setA.Count(x => setB.Contains(x));
+        var total = setA.Count + setB.Count;
+        return total == 0 ? 0f : (float)(2.0 * intersection / total);
     }
 }
 

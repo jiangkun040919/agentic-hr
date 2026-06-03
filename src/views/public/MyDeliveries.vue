@@ -55,8 +55,28 @@
             <span>{{ formatDate(row.deliverTime) }}</span>
           </div>
           <div class="dc-footer">
-            <span v-if="row.allowAIInterview" class="dc-ai-tag">🤖 AI面试已开放</span>
-            <span v-else class="dc-ai-tag dc-ai-tag--off">AI面试未开放</span>
+            <template v-if="deliverySessionMap.get(row.deliveryId)">
+              <div class="dc-ai-result">
+                <template v-if="[0,1].includes(deliverySessionMap.get(row.deliveryId).status)">
+                  <span class="dc-ai-score score-ongoing">🤖 面试进行中</span>
+                  <VBtn variant="ghost" color="purple" size="xs" @click.stop="startAIInterview(row)">
+                    继续面试 →
+                  </VBtn>
+                </template>
+                <template v-else>
+                  <span class="dc-ai-score" :class="getScoreClass(deliverySessionMap.get(row.deliveryId).totalScore || 0)">
+                    🤖 {{ deliverySessionMap.get(row.deliveryId).totalScore || '?' }}分
+                  </span>
+                  <VBtn variant="ghost" color="mint" size="xs" @click.stop="viewAIReport(deliverySessionMap.get(row.deliveryId))">
+                    查看报告 →
+                  </VBtn>
+                </template>
+              </div>
+            </template>
+            <template v-else>
+              <span v-if="row.allowAIInterview" class="dc-ai-tag">🤖 AI面试已开放</span>
+              <span v-else class="dc-ai-tag dc-ai-tag--off">AI面试未开放</span>
+            </template>
             <div class="dc-actions">
               <VBtn variant="ghost" color="gray" size="sm" @click.stop="viewDetail(row)">详情</VBtn>
               <VBtn variant="ghost" color="coral" size="sm" @click.stop="editDetail(row)">修改</VBtn>
@@ -190,17 +210,24 @@ const deliveries = computed(() => resumeStore.deliveries)
 const statusBarColors: Record<number, string> = { 0: '#C4A96A', 1: '#8A9BA8', 2: '#8B9A6E', 3: '#7A8B5E', 4: '#7A8B5E', 5: '#C4A96A' }
 const sessionStatusColors: Record<number, string> = { 0: 'gray', 1: 'sunny', 2: 'mint', 3: 'coral' }
 
-// 获取有活跃或已完成 AI session 的 deliveryId 集合
-const aiActiveDeliveryIds = computed(() => {
-  const ids = new Set<number>()
+// 投递ID → AI面试会话的映射
+const deliverySessionMap = computed(() => {
+  const map = new Map<number, any>()
   for (const s of aiSessions.value) {
-    if (s.deliveryId) ids.add(s.deliveryId)
+    if (s.deliveryId && !map.has(s.deliveryId)) {
+      map.set(s.deliveryId, s)  // 取最新的（已按CreatedAt倒序）
+    }
   }
-  return ids
+  return map
 })
 
 const aiInterviewInvitations = computed(() =>
-  deliveries.value.filter(d => d.allowAIInterview && !aiActiveDeliveryIds.value.has(d.deliveryId))
+  deliveries.value.filter(d => {
+    if (!d.allowAIInterview) return false
+    const session = deliverySessionMap.value.get(d.deliveryId)
+    // 没有 session，或 session 未开始/进行中 → 显示邀请
+    return !session || session.status === 0 || session.status === 1
+  })
 )
 
 const activeTab = ref('deliveries')
@@ -274,6 +301,10 @@ const startAIInterview = (delivery: any) => {
   const userId = localStorage.getItem('userId') || ''
   if (!userId) { ElMessage.warning('请重新登录'); router.push('/login'); return }
   router.push({ name: 'AIInterview', params: { jobId: String(delivery.jobId), deliveryId: String(delivery.deliveryId), candidateId: String(userId) } })
+}
+
+const viewAIReport = (session: any) => {
+  router.push({ name: 'AIInterviewReport', params: { sessionId: String(session.sessionId) } })
 }
 </script>
 
@@ -358,6 +389,16 @@ const startAIInterview = (delivery: any) => {
 .dc-meta { display: flex; gap: 16px; font-size: 13px; color: var(--color-text-muted); margin-bottom: 10px; }
 .dc-footer { display: flex; justify-content: space-between; align-items: center; }
 .dc-ai-tag { font-size: 12px; color: var(--color-accent); font-weight: 500; &--off { color: var(--color-text-muted); } }
+.dc-ai-result {
+  display: flex; align-items: center; gap: 8px;
+}
+.dc-ai-score {
+  font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: var(--radius-full);
+  &.score-high { background: rgba(122,139,94,0.12); color: #7A8B5E; }
+  &.score-medium { background: rgba(196,169,106,0.12); color: #C4A96A; }
+  &.score-low { background: rgba(200,120,100,0.12); color: #C87864; }
+  &.score-ongoing { background: rgba(139,92,246,0.1); color: #8B5CF6; }
+}
 .dc-actions { display: flex; gap: 6px; }
 
 // AI面试记录
